@@ -24,16 +24,49 @@
     </header>
 
     <div class="controls-bar">
+        <span id="player-badge" class="player-badge" hidden></span>
         <button id="btn-playpause">Start (P)</button>
         <button id="btn-footage">Toggle Footage</button>
         <button id="btn-mode">Rotate Screen</button>
         <button id="btn-switch">Switch Sides</button>
         <button id="btn-fullscreen">Fullscreen</button>
+        <button id="btn-name">Change Name</button>
     </div>
 
-    <div class="container">
-        <video class="input_video" width="640" height="480" autoplay playsinline></video>
-        <canvas class="output_canvas" width="640" height="480"></canvas>
+    <div class="game-layout">
+        <div class="container">
+            <video class="input_video" width="640" height="480" autoplay playsinline></video>
+            <canvas class="output_canvas" width="640" height="480"></canvas>
+        </div>
+
+        <div class="side-panel">
+            <aside class="scoreboard" aria-label="Scoreboard">
+                <h3>🏆 Scoreboard</h3>
+                <p class="score-rule">First to 5 wins</p>
+                <ol id="score-list" class="score-list">
+                    <li class="score-empty">No scores yet — be the first!</li>
+                </ol>
+                <button id="btn-clear-scores" class="btn-danger">Clear Board</button>
+            </aside>
+
+            <div id="name-modal" class="entry-card">
+                <h3 id="name-modal-title">Welcome to ByteCraft Pong</h3>
+                <p>Enter your name to enter the game:</p>
+                <form id="name-form">
+                    <input id="player-name-input" type="text" placeholder="Your name" maxlength="20" autocomplete="nickname" required>
+                    <button type="submit" id="btn-enter">Enter Game</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="gameover-modal" class="modal-overlay" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gameover-title">
+            <h3 id="gameover-title">Match Over</h3>
+            <p id="gameover-score" class="gameover-score"></p>
+            <p id="gameover-rank" class="gameover-rank"></p>
+            <button id="btn-newgame">New Game</button>
+        </div>
     </div>
 
     <script src="script.js"></script>

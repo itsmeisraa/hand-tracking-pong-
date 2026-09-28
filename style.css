@@ -10,6 +10,11 @@
     --line: rgba(130, 118, 255, 0.45);
 
     --brand-gradient: linear-gradient(135deg, var(--violet), var(--azure));
+
+    /* Height of the framed game panel: 480px canvas + 2*18px padding + 2*2px border.
+       The side column is capped to this so the scoreboard scrolls internally
+       instead of stretching the page. Update if the canvas size in index.html changes. */
+    --game-panel-h: 520px;
 }
 
 * { box-sizing: border-box; }
@@ -155,12 +160,282 @@ canvas {
 
 .input_video { display: none; }
 
-canvas:fullscreen {
+/* Fullscreen covers the whole page (masthead, controls, game, backdrop) */
+:fullscreen::backdrop { background: var(--ink); }
+body:fullscreen {
     width: 100vw;
-    height: 100vh;
-    object-fit: contain;
-    border-radius: 0;
-    background-color: #06031a;
+    min-height: 100vh;
+    overflow-y: auto;
+    padding: 24px 20px 32px;
+}
+
+/* Game + scoreboard layout */
+.game-layout {
+    display: flex;
+    gap: 18px;
+    align-items: stretch; /* side panel stretches to the game canvas height */
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+/* Right-hand column: scoreboard + name entry card.
+   Their heights must sum to the game panel height, so the scoreboard
+   takes the leftover space (flex-grow) and the card keeps its own size. */
+.side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1 1 260px;
+    min-width: 240px;
+    max-width: 340px;
+    max-height: var(--game-panel-h); /* hard cap: long boards scroll, page never grows */
+}
+
+.scoreboard {
+    flex: 1 1 auto; /* absorbs the height the entry card doesn't use */
+    min-height: 0;
+    min-width: 0;
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px;
+    border: 2px solid transparent;
+    border-radius: 18px;
+    background:
+        linear-gradient(var(--panel-bg), var(--panel-bg)) padding-box,
+        var(--brand-gradient) border-box;
+    box-shadow:
+        0 12px 50px rgba(0, 0, 0, 0.55),
+        0 0 60px rgba(85, 70, 255, 0.28);
+    backdrop-filter: blur(10px);
+}
+
+/* Name entry card (sits under the scoreboard, not over the page) */
+.entry-card {
+    flex: 0 0 auto;
+    padding: 18px;
+    text-align: center;
+    border: 2px solid transparent;
+    border-radius: 18px;
+    background:
+        linear-gradient(rgba(20, 13, 56, 0.92), rgba(20, 13, 56, 0.92)) padding-box,
+        var(--brand-gradient) border-box;
+    box-shadow:
+        0 12px 50px rgba(0, 0, 0, 0.55),
+        0 0 60px rgba(85, 70, 255, 0.28);
+    backdrop-filter: blur(10px);
+}
+
+.entry-card[hidden] { display: none; }
+
+.entry-card h3 {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+}
+
+.entry-card p {
+    margin: 0 0 14px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+.entry-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.entry-card input {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 999px;
+    border: 2px solid var(--line);
+    background: rgba(6, 3, 26, 0.65);
+    color: var(--text-color);
+    font: inherit;
+    text-align: center;
+}
+
+.entry-card input::placeholder { color: var(--text-dim); }
+
+.entry-card input:focus {
+    outline: none;
+    border-color: var(--azure);
+    box-shadow: 0 0 0 3px rgba(3, 166, 255, 0.2);
+}
+
+.entry-card button[type="submit"] {
+    width: 100%;
+    background: var(--brand-gradient);
+    border-color: transparent;
+    box-shadow: 0 6px 22px rgba(85, 70, 255, 0.5);
+}
+
+.entry-card button[type="submit"]:hover {
+    background: var(--brand-gradient);
+    filter: brightness(1.12);
+    box-shadow: 0 6px 26px rgba(3, 166, 255, 0.55);
+}
+
+.scoreboard h3 {
+    flex: 0 0 auto;
+    margin: 0 0 2px;
+    font-size: 1.1rem;
+}
+
+.score-rule {
+    flex: 0 0 auto;
+    margin: 0 0 10px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.score-list {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0 4px 0 0; /* room for the scrollbar */
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 auto; /* fills the panel, scrolls when the board is long */
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: var(--violet) rgba(85, 70, 255, 0.12);
+}
+
+/* Chrome / Edge / Safari */
+.score-list::-webkit-scrollbar { width: 10px; }
+
+.score-list::-webkit-scrollbar-track {
+    background: rgba(85, 70, 255, 0.12);
+    border-radius: 999px;
+}
+
+.score-list::-webkit-scrollbar-thumb {
+    background: var(--brand-gradient);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+}
+
+.score-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--azure), var(--violet));
+    background-clip: padding-box;
+}
+
+.score-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(85, 70, 255, 0.14);
+    border: 1px solid var(--line);
+    font-size: 0.9rem;
+}
+
+.score-rank {
+    flex: 0 0 auto;
+    min-width: 1.5rem;
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+.score-rank.num {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.score-list li.me {
+    border-color: var(--azure);
+    box-shadow: 0 0 0 2px rgba(3, 166, 255, 0.25);
+}
+
+.score-list .score-empty {
+    justify-content: center;
+    color: var(--text-dim);
+}
+
+.score-name {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.score-points {
+    flex: 0 0 auto;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.btn-danger {
+    flex: 0 0 auto; /* keep the Clear Board button from being squashed */
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+
+.player-badge {
+    align-self: center;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(3, 166, 255, 0.15);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+/* Name gate / game-over prompt card — a card only, so the game and
+   scoreboard stay visible behind it (never restore a full-page scrim) */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: transparent;
+    pointer-events: none; /* clicks fall through to the game/scoreboard behind */
+}
+
+.modal-overlay[hidden] { display: none; }
+
+.modal {
+    pointer-events: auto; /* the card itself stays interactive */
+    width: min(380px, 100%);
+    padding: 26px 24px;
+    border-radius: 18px;
+    text-align: center;
+    border: 2px solid transparent;
+    background:
+        linear-gradient(rgba(13, 8, 36, 0.94), rgba(13, 8, 36, 0.94)) padding-box,
+        var(--brand-gradient) border-box;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+}
+
+.modal h3 { margin: 0 0 6px; }
+.modal p { margin: 0 0 14px; }
+
+.gameover-score {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0 0 6px;
+}
+
+.gameover-rank {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--azure);
 }
 
 @media (max-width: 520px) {
