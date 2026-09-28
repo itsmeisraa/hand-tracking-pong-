@@ -1,0 +1,174 @@
+:root {
+    /* ByteCraft brand, sampled from logo.svg */
+    --violet: #5546ff;
+    --azure: #03a6ff;
+
+    --ink: #0d0824;          /* deepest violet-navy */
+    --panel-bg: rgba(20, 13, 56, 0.78);
+    --text-color: #f1efff;
+    --text-dim: #b7b0f0;
+    --line: rgba(130, 118, 255, 0.45);
+
+    --brand-gradient: linear-gradient(135deg, var(--violet), var(--azure));
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: "Quicksand", system-ui, -apple-system, sans-serif;
+    color: var(--text-color);
+    background-color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 24px 20px 32px;
+    min-height: 100vh;
+    position: relative;
+    isolation: isolate;
+}
+
+/* Painting from Bg.png, shifted from blue toward violet, then veiled so the UI stays readable */
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+body::before {
+    background: url("Bg.png") center / cover no-repeat;
+    filter: hue-rotate(28deg) saturate(1.1);
+}
+
+body::after {
+    background:
+        radial-gradient(ellipse at 50% 45%, rgba(13, 8, 36, 0.55), rgba(13, 8, 36, 0.92) 85%),
+        linear-gradient(180deg, rgba(85, 70, 255, 0.35), rgba(3, 166, 255, 0.12));
+}
+
+/* Masthead */
+.masthead {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 22px;
+}
+
+.logo {
+    height: 64px;
+    width: auto;
+    filter: drop-shadow(0 4px 18px rgba(85, 70, 255, 0.6));
+}
+
+h2 {
+    margin: 0;
+    font-size: clamp(1.4rem, 3.4vw, 2rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    text-align: left;
+}
+
+h2 .sub {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+}
+
+/* Controls */
+.controls-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+button {
+    background-color: rgba(85, 70, 255, 0.18);
+    color: var(--text-color);
+    border: 1px solid var(--line);
+    padding: 10px 20px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    backdrop-filter: blur(6px);
+    transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+
+button:hover {
+    background-color: rgba(85, 70, 255, 0.4);
+    border-color: var(--azure);
+    box-shadow: 0 0 0 3px rgba(3, 166, 255, 0.18);
+}
+
+button:active { transform: scale(0.95); }
+
+button:focus-visible {
+    outline: 2px solid var(--azure);
+    outline-offset: 3px;
+}
+
+#btn-playpause {
+    background: var(--brand-gradient);
+    border-color: transparent;
+    box-shadow: 0 6px 22px rgba(85, 70, 255, 0.5);
+}
+
+#btn-playpause:hover {
+    background: var(--brand-gradient);
+    filter: brightness(1.12);
+    box-shadow: 0 6px 26px rgba(3, 166, 255, 0.55);
+}
+
+/* Game panel with a violet-to-azure frame */
+.container {
+    padding: 18px;
+    border: 2px solid transparent;
+    border-radius: 18px;
+    background:
+        linear-gradient(var(--panel-bg), var(--panel-bg)) padding-box,
+        var(--brand-gradient) border-box;
+    box-shadow:
+        0 12px 50px rgba(0, 0, 0, 0.55),
+        0 0 60px rgba(85, 70, 255, 0.28);
+    backdrop-filter: blur(10px);
+    max-width: 100%;
+}
+
+canvas {
+    display: block;
+    border-radius: 10px;
+    background-color: #06031a;
+    cursor: none;
+    max-width: 100%;
+}
+
+.input_video { display: none; }
+
+canvas:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    border-radius: 0;
+    background-color: #06031a;
+}
+
+@media (max-width: 520px) {
+    .masthead { gap: 12px; }
+    .logo { height: 48px; }
+    .container { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    button { transition: none; }
+}

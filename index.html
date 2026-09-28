@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ByteCraft Pong | MediaPipe Hands</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="masthead">
+        <img class="logo" src="logo.svg" alt="ByteCraft">
+        <h2>2D Pong <span class="sub">Vertical / Horizontal Modes</span></h2>
+    </header>
+
+    <div class="controls-bar">
+        <button id="btn-playpause">Start (P)</button>
+        <button id="btn-footage">Toggle Footage</button>
+        <button id="btn-mode">Rotate Screen</button>
+        <button id="btn-switch">Switch Sides</button>
+        <button id="btn-fullscreen">Fullscreen</button>
+    </div>
+
+    <div class="container">
+        <video class="input_video" width="640" height="480" autoplay playsinline></video>
+        <canvas class="output_canvas" width="640" height="480"></canvas>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
