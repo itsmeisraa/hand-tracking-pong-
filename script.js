@@ -49,7 +49,6 @@ const sfx = {
 
 // --- FEATURE STATES ---
 let showFootage = true;
-let isVertical = false; 
 let isSwapped = true;  
 let isPlaying = false; 
 
@@ -115,13 +114,17 @@ document.getElementById('btn-name').addEventListener('click', () => {
 // --- SCOREBOARD (scores.json seed + localStorage DB) ---
 // Browser JS cannot write back to scores.json on disk, so scores.json is the
 // read-only seed and localStorage is the writable store with the same shape:
-// [{ name, score, aiScore, date }] — score = player points, aiScore = points
-// the AI scored in that match (used as a tiebreaker).
+// [{ name, score, aiScore, date, difficulty }]
+//   score      = player points
+//   aiScore    = points the AI scored that match (scoreline tiebreaker)
+//   difficulty = which board the entry belongs to; missing = 'normal' (legacy)
 const SCORE_DB_KEY = 'bytecraft_pong_scores_v1';
-const MAX_BOARD_ENTRIES = 10;
+const MAX_BOARD_ENTRIES = 10; // per difficulty, not overall
 const MEDALS = ['🥇', '🥈', '🥉'];
-let scoreBoard = [];
+let scoreBoard = []; // every difficulty lives here, tagged and filtered
 const scoreList = document.getElementById('score-list');
+const scoreDiffLabel = document.getElementById('score-diff-label');
+const btnClearScores = document.getElementById('btn-clear-scores');
 
 async function loadBoard() {
     let seed = [];
@@ -149,16 +152,33 @@ function persistBoard() {
     try { localStorage.setItem(SCORE_DB_KEY, JSON.stringify(scoreBoard)); } catch {}
 }
 
+// Legacy rows (saved before boards were split) count as Normal.
+function entryDifficulty(entry) {
+    return DIFFICULTY_ORDER.includes(entry.difficulty) ? entry.difficulty : 'normal';
+}
+
+// One independent leaderboard per difficulty, already ranked and trimmed.
+function boardFor(key) {
+    return scoreBoard
+        .filter((e) => entryDifficulty(e) === key)
+        .sort(compareEntries)
+        .slice(0, MAX_BOARD_ENTRIES);
+}
+
 function renderBoard() {
+    const rows = boardFor(difficultyKey);
+    scoreDiffLabel.textContent = difficulty.label;
+    btnClearScores.innerText = `Clear ${difficulty.label} Board`;
+
     scoreList.innerHTML = '';
-    if (scoreBoard.length === 0) {
+    if (rows.length === 0) {
         const li = document.createElement('li');
         li.className = 'score-empty';
-        li.textContent = '🏓 No scores yet — be the first!';
+        li.textContent = `🏓 No ${difficulty.label} scores yet`;
         scoreList.appendChild(li);
         return;
     }
-    scoreBoard.forEach((entry, i) => {
+    rows.forEach((entry, i) => {
         const li = document.createElement('li');
         if (entry.name === playerName) li.classList.add('me');
 
@@ -195,15 +215,19 @@ function compareEntries(a, b) {
     return String(a.date || '').localeCompare(String(b.date || ''));
 }
 
+// Groups the array by difficulty, each group ranked. Trimming to the top 10 is
+// per board, so it lives in boardFor() rather than here.
 function sortBoard() {
-    scoreBoard.sort(compareEntries);
-    scoreBoard = scoreBoard.slice(0, MAX_BOARD_ENTRIES);
+    scoreBoard.sort((a, b) =>
+        DIFFICULTY_ORDER.indexOf(entryDifficulty(a)) - DIFFICULTY_ORDER.indexOf(entryDifficulty(b))
+        || compareEntries(a, b));
 }
 
 function recordPlayerScore() {
     if (!playerName || player.score <= 0) return;
     const stamp = new Date().toISOString();
-    const existing = scoreBoard.find((e) => e.name === playerName);
+    const existing = scoreBoard.find(
+        (e) => e.name === playerName && entryDifficulty(e) === matchDifficulty);
     if (existing) {
         const sameScore = player.score === existing.score;
         const betterScoreline = sameScore && ai.score < (typeof existing.aiScore === 'number' ? existing.aiScore : Infinity);
@@ -213,21 +237,212 @@ function recordPlayerScore() {
             existing.date = stamp;
         } else return; // same or worse — keep the earlier/better result
     } else {
-        scoreBoard.push({ name: playerName, score: player.score, aiScore: ai.score, date: stamp });
+        scoreBoard.push({
+            name: playerName,
+            score: player.score,
+            aiScore: ai.score,
+            date: stamp,
+            difficulty: matchDifficulty
+        });
     }
     sortBoard();
     persistBoard();
     renderBoard();
 }
 
-document.getElementById('btn-clear-scores').addEventListener('click', () => {
-    scoreBoard = [];
+btnClearScores.addEventListener('click', () => {
+    // Only the board on screen — Easy/Normal/Hard are kept apart.
+    scoreBoard = scoreBoard.filter((e) => entryDifficulty(e) !== difficultyKey);
     persistBoard();
     renderBoard();
 });
 
 const PADDLE_LONG = 100;
 const PADDLE_SHORT = 20;
+
+// --- DIFFICULTY ---
+// speed    : how fast the AI paddle tracks its target (px/frame)
+// deadzone : how far off-target it tolerates before moving (slop/reaction error)
+// lead     : 1 = aim where the ball will arrive (predicted), 0 = aim at the ball now
+const DIFFICULTIES = {
+    easy:   { label: 'Easy',   speed: 3.5, deadzone: 45, lead: 0 },
+    normal: { label: 'Normal', speed: 6,   deadzone: 22, lead: 0 },
+    hard:   { label: 'Hard',   speed: 9,   deadzone: 8,  lead: 1 }
+};
+const DIFFICULTY_ORDER = ['easy', 'normal', 'hard'];
+let difficultyKey = 'normal';
+let difficulty = DIFFICULTIES[difficultyKey];
+// The difficulty a match STARTED on — kept so switching difficulty mid-match
+// can't file the result under the wrong board.
+let matchDifficulty = difficultyKey;
+
+function applyDifficulty() {
+    difficulty = DIFFICULTIES[difficultyKey];
+    ai.speed = difficulty.speed;
+    ai.deadzone = difficulty.deadzone;
+}
+
+const btnDifficulty = document.getElementById('btn-difficulty');
+
+function cycleDifficulty() {
+    difficultyKey = DIFFICULTY_ORDER[(DIFFICULTY_ORDER.indexOf(difficultyKey) + 1) % DIFFICULTY_ORDER.length];
+    applyDifficulty();
+    btnDifficulty.innerText = `Difficulty: ${difficulty.label}`;
+    renderBoard(); // each difficulty shows its own leaderboard
+}
+
+btnDifficulty.addEventListener('click', cycleDifficulty);
+
+// --- HAND MESH OVERLAY (shows the tracked landmarks) ---
+const HAND_CONNECTIONS = [
+    [0, 1], [1, 2], [2, 3], [3, 4],
+    [0, 5], [5, 6], [6, 7], [7, 8],
+    [5, 9], [9, 10], [10, 11], [11, 12],
+    [9, 13], [13, 14], [14, 15], [15, 16],
+    [13, 17], [17, 18], [18, 19], [19, 20],
+    [0, 17]
+];
+let showMesh = false;
+
+const btnMesh = document.getElementById('btn-mesh');
+
+btnMesh.addEventListener('click', () => {
+    showMesh = !showMesh;
+    btnMesh.innerText = `Hand Mesh: ${showMesh ? 'On' : 'Off'}`;
+});
+
+// --- VISUAL EFFECTS (trail, particles, screen shake) ---
+const TRAIL_LEN = 16;
+const trail = [];
+const particles = [];
+let shakeMag = 0;
+
+function addShake(mag) { shakeMag = Math.min(20, shakeMag + mag); }
+
+// One place to award a point, so scoring, sfx, board and juice stay in sync.
+function registerPoint(who, burstX, burstY) {
+    if (who === 'player') {
+        player.score++;
+        sfx.playerScore();
+        recordPlayerScore();
+    } else {
+        ai.score++;
+        sfx.aiScore();
+    }
+    spawnBurst(burstX, burstY, who === 'player' ? '0, 230, 118' : '255, 82, 82');
+    addShake(7);
+}
+
+function spawnBurst(x, y, rgb, count = 40, power = 5) {
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.random() * 2 - 1) * Math.PI;
+        const spd = (0.4 + Math.random()) * power;
+        particles.push({
+            x, y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            life: 1,
+            decay: 0.012 + Math.random() * 0.022,
+            size: 1.5 + Math.random() * 3,
+            rgb
+        });
+    }
+}
+
+function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.975;
+        p.vy *= 0.975;
+        p.life -= p.decay;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+}
+
+function drawParticles() {
+    for (const p of particles) {
+        canvasCtx.globalAlpha = Math.max(0, p.life);
+        canvasCtx.fillStyle = `rgb(${p.rgb})`;
+        canvasCtx.beginPath();
+        canvasCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+        canvasCtx.fill();
+    }
+    canvasCtx.globalAlpha = 1;
+}
+
+function drawTrail() {
+    for (let i = 0; i < trail.length; i++) {
+        const p = trail[i];
+        const t = (i + 1) / trail.length; // oldest = faintest
+        canvasCtx.globalAlpha = t * 0.5;
+        canvasCtx.fillStyle = getBallColor(p.speed, ball.minSpeed, ball.maxSpeed);
+        canvasCtx.beginPath();
+        canvasCtx.arc(p.x, p.y, ball.radius * t * 0.85, 0, Math.PI * 2);
+        canvasCtx.fill();
+    }
+    canvasCtx.globalAlpha = 1;
+}
+
+// --- TELEMETRY HUD ---
+const telemetry = { fps: 0, frames: 0, since: 0, inferenceMs: 0, lastSeen: 0, handedness: null, tracked: false };
+let frameSentAt = 0;
+
+function drawTelemetry() {
+    const lines = [
+        `FPS ${telemetry.fps.toFixed(1)}  ·  AI ${telemetry.inferenceMs.toFixed(1)} ms`,
+        telemetry.tracked
+            ? `HAND LOCKED${telemetry.handedness ? ' ' + Math.round(telemetry.handedness.score * 100) + '%' : ''}`
+            : 'NO HAND — show your palm',
+        `${difficulty.label.toUpperCase()}  speed ${difficulty.speed}  deadzone ${difficulty.deadzone}  lead ${difficulty.lead}`
+    ];
+    canvasCtx.save();
+    canvasCtx.font = "12px monospace";
+    let width = 0;
+    for (const line of lines) width = Math.max(width, canvasCtx.measureText(line).width);
+    const boxW = width + 18;
+    const boxH = lines.length * 16 + 12;
+    const x = 12;
+    const y = canvasElement.height - boxH - 12;
+    canvasCtx.fillStyle = "rgba(6, 3, 26, 0.55)";
+    canvasCtx.strokeStyle = "rgba(3, 166, 255, 0.35)";
+    canvasCtx.lineWidth = 1;
+    canvasCtx.beginPath();
+    canvasCtx.rect(x, y, boxW, boxH);
+    canvasCtx.fill();
+    canvasCtx.stroke();
+    canvasCtx.textAlign = "left";
+    canvasCtx.fillStyle = "#9fe8ff";
+    lines.forEach((line, i) => {
+        canvasCtx.fillText(line, x + 9, y + 20 + i * 16);
+    });
+    canvasCtx.restore();
+}
+
+function drawHandMesh(landmarks) {
+    const W = canvasElement.width, H = canvasElement.height;
+    const px = (lm) => (1 - lm.x) * W; // mirrored to match the drawn feed
+    const py = (lm) => lm.y * H;
+    canvasCtx.save();
+    canvasCtx.strokeStyle = "rgba(3, 166, 255, 0.85)";
+    canvasCtx.lineWidth = 2;
+    canvasCtx.beginPath();
+    for (const [a, b] of HAND_CONNECTIONS) {
+        const la = landmarks[a], lb = landmarks[b];
+        if (!la || !lb) continue;
+        canvasCtx.moveTo(px(la), py(la));
+        canvasCtx.lineTo(px(lb), py(lb));
+    }
+    canvasCtx.stroke();
+    canvasCtx.fillStyle = "#00e676";
+    for (const lm of landmarks) {
+        canvasCtx.beginPath();
+        canvasCtx.arc(px(lm), py(lm), 3, 0, Math.PI * 2);
+        canvasCtx.fill();
+    }
+    canvasCtx.restore();
+}
 
 // --- KEYBOARD SHORTCUTS ---
 document.addEventListener('keydown', (e) => {
@@ -278,7 +493,7 @@ const gameoverScore = document.getElementById('gameover-score');
 const gameoverRank = document.getElementById('gameover-rank');
 
 function playerRank() {
-    const idx = scoreBoard.findIndex((e) => e.name === playerName);
+    const idx = boardFor(matchDifficulty).findIndex((e) => e.name === playerName);
     return idx === -1 ? null : idx + 1;
 }
 
@@ -289,9 +504,10 @@ function showGameOverModal() {
     gameoverScore.textContent = `${name} ${player.score}-${ai.score} AI`;
     const rank = playerRank();
     const medal = rank !== null && rank <= 3 ? ` ${MEDALS[rank - 1]}` : '';
+    const board = DIFFICULTIES[matchDifficulty].label;
     gameoverRank.textContent = rank === null
-        ? 'Unranked — outside the top 10'
-        : `Your rank: #${rank}${medal}`;
+        ? `Unranked on the ${board} board — outside the top ${MAX_BOARD_ENTRIES}`
+        : `${board} rank: #${rank}${medal}`;
     gameoverModal.hidden = false;
 }
 
@@ -334,13 +550,6 @@ document.getElementById('btn-footage').addEventListener('click', () => {
     showFootage = !showFootage;
 });
 
-document.getElementById('btn-mode').addEventListener('click', (e) => {
-    isVertical = !isVertical;
-    e.target.innerText = isVertical ? "Change Mode (Horizontal)" : "Change Mode (Vertical)";
-    updatePaddleDimensions();
-    resetGame();
-});
-
 document.getElementById('btn-switch').addEventListener('click', () => {
     isSwapped = !isSwapped;
     resetGame();
@@ -376,12 +585,8 @@ let lastCountdownSec = 0;
 
 function computeLaunchVelocity() {
     const speed = ball.minSpeed;
-    if (!isVertical) {
-        const directionX = isSwapped ? 1 : -1;
-        return { vx: directionX * speed, vy: (Math.random() * 2 - 1) * speed * 0.7 };
-    }
-    const directionY = isSwapped ? -1 : 1;
-    return { vx: (Math.random() * 2 - 1) * speed * 0.7, vy: directionY * speed };
+    const directionX = isSwapped ? 1 : -1;
+    return { vx: directionX * speed, vy: (Math.random() * 2 - 1) * speed * 0.7 };
 }
 
 function armCountdown() {
@@ -393,18 +598,33 @@ function armCountdown() {
 // --- GAME VARIABLES ---
 const ball = { x: 320, y: 240, vx: 0, vy: 0, radius: 10, speed: 5, minSpeed: 6, maxSpeed: 30 };
 const player = { width: PADDLE_SHORT, height: PADDLE_LONG, score: 0 };
-const ai = { x: 600, y: 240, width: PADDLE_SHORT, height: PADDLE_LONG, score: 0, speed: 6 };
-const AI_DEADZONE = 22; // AI ignores small offsets — a beatable amount of slop
+const ai = { x: 600, y: 240, width: PADDLE_SHORT, height: PADDLE_LONG, score: 0, speed: 6, deadzone: 22 };
 
 // AI only chases when the ball is coming at it, otherwise it drifts to center.
 function ballComingAtAI() {
     if (ballHeld) return false;
-    if (!isVertical) {
-        const aiOnLeft = ai.x < canvasElement.width / 2;
-        return aiOnLeft ? ball.vx < 0 : ball.vx > 0;
-    }
-    const aiOnTop = ai.y < canvasElement.height / 2;
-    return aiOnTop ? ball.vy < 0 : ball.vy > 0;
+    const aiOnLeft = ai.x < canvasElement.width / 2;
+    return aiOnLeft ? ball.vx < 0 : ball.vx > 0;
+}
+
+// Folds y past the top/bottom walls using a triangle wave — the standard
+// trick for predicting a ball's position after N wall bounces.
+function foldReflect(value, min, max) {
+    const span = max - min;
+    if (span <= 0) return min;
+    let v = (value - min) % (2 * span);
+    if (v < 0) v += 2 * span;
+    if (v > span) v = 2 * span - v;
+    return min + v;
+}
+
+// Where (and when) the ball will reach the AI's line. null if it is moving away.
+function predictIntercept() {
+    const H = canvasElement.height, r = ball.radius;
+    if (Math.abs(ball.vx) < 0.0001) return null;
+    const t = (ai.x - ball.x) / ball.vx;
+    if (t <= 0) return null;
+    return foldReflect(ball.y + ball.vy * t, r, H - r);
 }
 
 // Player stays on their own half — the middle line is a wall for the paddle.
@@ -415,32 +635,22 @@ function clampPlayerToSide() {
     currentPointerY = clamp(currentPointerY, player.height / 2, H - player.height / 2);
     targetPointerX = clamp(targetPointerX, player.width / 2, W - player.width / 2);
     targetPointerY = clamp(targetPointerY, player.height / 2, H - player.height / 2);
-    if (!isVertical) {
-        if (isSwapped) currentPointerX = Math.max(currentPointerX, W / 2 + player.width / 2); // player: right half
-        else currentPointerX = Math.min(currentPointerX, W / 2 - player.width / 2);           // player: left half
-    } else {
-        if (isSwapped) currentPointerY = Math.min(currentPointerY, H / 2 - player.height / 2); // player: top half
-        else currentPointerY = Math.max(currentPointerY, H / 2 + player.height / 2);           // player: bottom half
-    }
+    if (isSwapped) currentPointerX = Math.max(currentPointerX, W / 2 + player.width / 2); // player: right half
+    else currentPointerX = Math.min(currentPointerX, W / 2 - player.width / 2);           // player: left half
 }
 
 function movePlayerToOwnHalf() {
     const W = canvasElement.width;
     const H = canvasElement.height;
-    if (!isVertical) {
-        currentPointerX = targetPointerX = isSwapped ? W * 0.75 : W * 0.25;
-        currentPointerY = targetPointerY = H / 2;
-    } else {
-        currentPointerX = targetPointerX = W / 2;
-        currentPointerY = targetPointerY = isSwapped ? H * 0.25 : H * 0.75;
-    }
+    currentPointerX = targetPointerX = isSwapped ? W * 0.75 : W * 0.25;
+    currentPointerY = targetPointerY = H / 2;
 }
 
 function updatePaddleDimensions() {
-    player.width = isVertical ? PADDLE_LONG : PADDLE_SHORT;
-    player.height = isVertical ? PADDLE_SHORT : PADDLE_LONG;
-    ai.width = isVertical ? PADDLE_LONG : PADDLE_SHORT;
-    ai.height = isVertical ? PADDLE_SHORT : PADDLE_LONG;
+    player.width = PADDLE_SHORT;
+    player.height = PADDLE_LONG;
+    ai.width = PADDLE_SHORT;
+    ai.height = PADDLE_LONG;
     movePlayerToOwnHalf();
 }
 
@@ -449,6 +659,7 @@ function resetGame() {
     ai.score = 0;
     gameOver = false;
     winner = null;
+    matchDifficulty = difficultyKey; // results are filed under the match's difficulty
     hideGameOverModal();
     resetBall();
 }
@@ -480,7 +691,7 @@ function getBallColor(currentSpeed, min, max) {
     }
 }
 
-function handleRectCollision(rectCenterX, rectCenterY, rectWidth, rectHeight, paddleVelocityX, paddleVelocityY) {
+function handleRectCollision(rectCenterX, rectCenterY, rectWidth, rectHeight, paddleVelocityX, paddleVelocityY, paddleRgb = '255, 255, 255') {
     const left = rectCenterX - rectWidth / 2;
     const right = rectCenterX + rectWidth / 2;
     const top = rectCenterY - rectHeight / 2;
@@ -507,17 +718,21 @@ function handleRectCollision(rectCenterX, rectCenterY, rectWidth, rectHeight, pa
         else if (minOverlap === overlapTop) { ball.y = top - ball.radius; ball.vy = -Math.abs(ball.vy); bounced = true; } 
         else if (minOverlap === overlapBottom) { ball.y = bottom + ball.radius; ball.vy = Math.abs(ball.vy); bounced = true; }
 
-        if (bounced) sfx.paddle(); 
+        if (bounced) {
+            sfx.paddle();
+            // Impact feedback: sparks at the contact point + a shake scaled to
+            // how hard the ball was hit (fast hits feel violent, soft ones don't).
+            addShake(Math.min(7, ball.speed * 0.28));
+            spawnBurst(ball.x, ball.y, paddleRgb, 10, 2.4);
+        } 
 
         ball.vx += paddleVelocityX * 0.7; 
         ball.vy += paddleVelocityY * 0.7;
 
-        if (!isVertical && (minOverlap === overlapLeft || minOverlap === overlapRight)) {
+        // Side hit: angle the bounce off where the ball struck the paddle.
+        if (minOverlap === overlapLeft || minOverlap === overlapRight) {
             const relativeIntersectY = (rectCenterY - ball.y) / (rectHeight / 2);
             ball.vy -= relativeIntersectY * 4; 
-        } else if (isVertical && (minOverlap === overlapTop || minOverlap === overlapBottom)) {
-            const relativeIntersectX = (rectCenterX - ball.x) / (rectWidth / 2);
-            ball.vx -= relativeIntersectX * 4; 
         }
 
         let rawSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
@@ -532,6 +747,17 @@ function onResults(results) {
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     
+    // Telemetry: how fast we're rendering and how long inference took.
+    const perfNow = performance.now();
+    telemetry.frames++;
+    if (!telemetry.since) telemetry.since = perfNow;
+    if (perfNow - telemetry.since >= 500) {
+        telemetry.fps = (telemetry.frames * 1000) / (perfNow - telemetry.since);
+        telemetry.frames = 0;
+        telemetry.since = perfNow;
+    }
+    if (frameSentAt) telemetry.inferenceMs = perfNow - frameSentAt;
+
     if (showFootage) {
         canvasCtx.save();
         canvasCtx.scale(-1, 1);
@@ -544,11 +770,25 @@ function onResults(results) {
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
+        telemetry.tracked = true;
+        telemetry.lastSeen = perfNow;
+        const handedness = (results.multiHandedness || results.multiHandednesses);
+        if (handedness && handedness[0] && handedness[0][0]) telemetry.handedness = handedness[0][0];
+        if (showMesh) drawHandMesh(landmarks);
         if (landmarks && landmarks[8]) {
             const indexTip = landmarks[8]; 
             targetPointerX = (1 - indexTip.x) * canvasElement.width;
             targetPointerY = indexTip.y * canvasElement.height;
         }
+    } else {
+        telemetry.tracked = false;
+    }
+
+    // Screen shake applies to the game layer only, so the camera feed never
+    // exposes an unpainted edge at the canvas border.
+    if (shakeMag > 0.2) {
+        canvasCtx.save();
+        canvasCtx.translate((Math.random() - 0.5) * shakeMag, (Math.random() - 0.5) * shakeMag);
     }
 
     let totalPaddleDx = (targetPointerX - currentPointerX) * SMOOTHING_FACTOR;
@@ -576,24 +816,25 @@ function onResults(results) {
         ball.vy = (ball.vy / currentVectorSpeed) * ball.speed;
     }
 
-    let totalAiDx = 0;
     let totalAiDy = 0;
-    if (!isVertical) {
+    {
+        const dead = ai.deadzone;
+        let aim;
         if (ballComingAtAI()) {
-            if (ai.y < ball.y - AI_DEADZONE) totalAiDy = ai.speed;
-            else if (ai.y > ball.y + AI_DEADZONE) totalAiDy = -ai.speed;
+            const intercept = difficulty.lead > 0 ? predictIntercept() : null;
+            aim = intercept === null ? ball.y : intercept;
         } else {
-            if (ai.y < 240 - AI_DEADZONE) totalAiDy = ai.speed * 0.5;
-            else if (ai.y > 240 + AI_DEADZONE) totalAiDy = -ai.speed * 0.5;
+            aim = canvasElement.height / 2; // ball is going away: reset toward the middle
         }
-    } else {
-        if (ballComingAtAI()) {
-            if (ai.x < ball.x - AI_DEADZONE) totalAiDx = ai.speed;
-            else if (ai.x > ball.x + AI_DEADZONE) totalAiDx = -ai.speed;
-        } else {
-            if (ai.x < 320 - AI_DEADZONE) totalAiDx = ai.speed * 0.5;
-            else if (ai.x > 320 + AI_DEADZONE) totalAiDx = -ai.speed * 0.5;
-        }
+
+        if (ai.y < aim - dead) totalAiDy = ai.speed;        // aim is below the paddle
+        else if (ai.y > aim + dead) totalAiDy = -ai.speed;   // aim is above the paddle
+    }
+
+    // Ball trail: exactly one sample per rendered frame while it's live.
+    if (isPlaying && !ballHeld) {
+        trail.push({ x: ball.x, y: ball.y, speed: ball.speed });
+        if (trail.length > TRAIL_LEN) trail.shift();
     }
 
     for (let i = 0; i < SUBSTEPS; i++) {
@@ -601,66 +842,40 @@ function onResults(results) {
         currentPointerY += totalPaddleDy / SUBSTEPS;
         clampPlayerToSide();
 
-        ai.x += totalAiDx / SUBSTEPS;
         ai.y += totalAiDy / SUBSTEPS;
-        
-        if (!isVertical) {
-            ai.x = isSwapped ? 40 : 600; 
-            ai.y = Math.max(ai.height / 2, Math.min(canvasElement.height - ai.height / 2, ai.y));
-        } else {
-            ai.y = isSwapped ? 440 : 40; 
-            ai.x = Math.max(ai.width / 2, Math.min(canvasElement.width - ai.width / 2, ai.x));
-        }
+
+        // The AI never crosses the middle line.
+        ai.x = isSwapped ? 40 : 600;
+        ai.y = Math.max(ai.height / 2, Math.min(canvasElement.height - ai.height / 2, ai.y));
 
         if (isPlaying && !ballHeld) {
             ball.x += ball.vx / SUBSTEPS;
             ball.y += ball.vy / SUBSTEPS;
 
-            if (!isVertical) {
-                if (ball.y - ball.radius <= 0) { ball.vy = Math.abs(ball.vy); ball.y = ball.radius; sfx.wall(); } 
-                else if (ball.y + ball.radius >= canvasElement.height) { ball.vy = -Math.abs(ball.vy); ball.y = canvasElement.height - ball.radius; sfx.wall(); }
+            if (ball.y - ball.radius <= 0) { ball.vy = Math.abs(ball.vy); ball.y = ball.radius; sfx.wall(); } 
+            else if (ball.y + ball.radius >= canvasElement.height) { ball.vy = -Math.abs(ball.vy); ball.y = canvasElement.height - ball.radius; sfx.wall(); }
 
-                if (ball.x < 0) {
-                    if (!isSwapped) { ai.score++; sfx.aiScore(); } 
-                    else { player.score++; sfx.playerScore(); recordPlayerScore(); }
-                    if (!checkMatchEnd()) resetBall();
-                    break; 
-                } else if (ball.x > canvasElement.width) {
-                    if (!isSwapped) { player.score++; sfx.playerScore(); recordPlayerScore(); } 
-                    else { ai.score++; sfx.aiScore(); }
-                    if (!checkMatchEnd()) resetBall();
-                    break; 
-                }
-            } else {
-                if (ball.x - ball.radius <= 0) { ball.vx = Math.abs(ball.vx); ball.x = ball.radius; sfx.wall(); } 
-                else if (ball.x + ball.radius >= canvasElement.width) { ball.vx = -Math.abs(ball.vx); ball.x = canvasElement.width - ball.radius; sfx.wall(); }
-
-                if (ball.y < 0) {
-                    if (!isSwapped) { player.score++; sfx.playerScore(); recordPlayerScore(); } 
-                    else { ai.score++; sfx.aiScore(); }
-                    if (!checkMatchEnd()) resetBall();
-                    break;
-                } else if (ball.y > canvasElement.height) {
-                    if (!isSwapped) { ai.score++; sfx.aiScore(); } 
-                    else { player.score++; sfx.playerScore(); recordPlayerScore(); }
-                    if (!checkMatchEnd()) resetBall();
-                    break;
-                }
+            if (ball.x < 0) {
+                registerPoint(isSwapped ? 'player' : 'ai', 0, ball.y);
+                if (!checkMatchEnd()) resetBall();
+                break; 
+            } else if (ball.x > canvasElement.width) {
+                registerPoint(isSwapped ? 'ai' : 'player', canvasElement.width, ball.y);
+                if (!checkMatchEnd()) resetBall();
+                break; 
             }
 
-            handleRectCollision(currentPointerX, currentPointerY, player.width, player.height, totalPaddleDx, totalPaddleDy);
-            handleRectCollision(ai.x, ai.y, ai.width, ai.height, 0, 0); 
+            handleRectCollision(currentPointerX, currentPointerY, player.width, player.height, totalPaddleDx, totalPaddleDy, '0, 230, 118');
+            handleRectCollision(ai.x, ai.y, ai.width, ai.height, 0, 0, '255, 82, 82'); 
         }
     }
 
+    updateParticles();
+    drawTrail();
+
     canvasCtx.beginPath();
-    if (!isVertical) {
-        canvasCtx.moveTo(canvasElement.width / 2, 0);
-        canvasCtx.lineTo(canvasElement.width / 2, canvasElement.height);
-    } else {
-        canvasCtx.moveTo(0, canvasElement.height / 2);
-        canvasCtx.lineTo(canvasElement.width, canvasElement.height / 2);
-    }
+    canvasCtx.moveTo(canvasElement.width / 2, 0);
+    canvasCtx.lineTo(canvasElement.width / 2, canvasElement.height);
     canvasCtx.strokeStyle = "rgba(255, 255, 255, 0.45)";
     canvasCtx.setLineDash([14, 10]);
     canvasCtx.lineWidth = 3;
@@ -680,12 +895,15 @@ function onResults(results) {
     canvasCtx.strokeRect(ai.x - ai.width / 2, ai.y - ai.height / 2, ai.width, ai.height);
 
     canvasCtx.beginPath();
-    canvasCtx.arc(ball.x, ball.y, ball.radius, 0, 2 * Math.PI);
+    canvasCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
     canvasCtx.fillStyle = getBallColor(ball.speed, ball.minSpeed, ball.maxSpeed);
     canvasCtx.fill();
     canvasCtx.shadowBlur = ball.speed; 
     canvasCtx.shadowColor = canvasCtx.fillStyle;
     canvasCtx.shadowBlur = 0; 
+
+    drawParticles();
+
     
     canvasCtx.font = "bold 24px monospace";
     canvasCtx.fillStyle = "rgba(0, 230, 118, 1)";
@@ -756,6 +974,12 @@ function onResults(results) {
         canvasCtx.textAlign = "left"; 
     }
 
+    if (shakeMag > 0.2) {
+        canvasCtx.restore(); // release the shake transform
+        shakeMag *= 0.88;
+    }
+
+    drawTelemetry(); // drawn unshaken, last, so it stays readable
     canvasCtx.restore();
 }
 
@@ -767,11 +991,15 @@ hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0
 hands.onResults(onResults);
 
 const camera = new Camera(videoElement, {
-    onFrame: async () => { await hands.send({image: videoElement}); },
+    onFrame: async () => {
+        frameSentAt = performance.now(); // lets onResults report inference latency
+        await hands.send({image: videoElement});
+    },
     width: 640, height: 480
 });
 
 camera.start();
+applyDifficulty();
 updatePaddleDimensions();
 resetBall();
 refreshPlayerBadge();

@@ -9,12 +9,30 @@
     --text-dim: #b7b0f0;
     --line: rgba(130, 118, 255, 0.45);
 
-    --brand-gradient: linear-gradient(135deg, var(--violet), var(--azure));
+    --brand-violet-soft: rgba(85, 70, 255, 0.16);
+    --brand-azure-soft: rgba(3, 166, 255, 0.14);
+
+    /* Flat panel recipe — no gradients anywhere. One hairline border in the
+       brand violet, an inset top highlight for depth, one soft shadow. Panels
+       share these so the whole UI reads as a single clean system. */
+    --panel-border: 1px solid rgba(85, 70, 255, 0.5);
+    --panel-surface: rgba(16, 10, 42, 0.72);
+    --panel-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 10px 30px rgba(0, 0, 0, 0.45);
+    --focus-ring: 0 0 0 3px rgba(3, 166, 255, 0.28);
 
     /* Height of the framed game panel: 480px canvas + 2*18px padding + 2*2px border.
        The side column is capped to this so the scoreboard scrolls internally
        instead of stretching the page. Update if the canvas size in index.html changes. */
     --game-panel-h: 520px;
+
+    /* Fullscreen upscale caps. The canvas drawing buffer is 640x480, so scaling
+       past ~1.3x looks soft. --fs-panel-max stays 28px above the canvas cap
+       (2*12px container padding + 2*2px border) so the side column is exactly
+       flush with the game panel. Raise both to fill larger screens. */
+    --fs-canvas-max: 624px;
+    --fs-panel-max: 652px;
 }
 
 * { box-sizing: border-box; }
@@ -48,10 +66,10 @@ body::before {
     filter: hue-rotate(28deg) saturate(1.1);
 }
 
+/* Flat veil over the artwork so text stays readable — a single solid tint,
+   no gradient wash. */
 body::after {
-    background:
-        radial-gradient(ellipse at 50% 45%, rgba(13, 8, 36, 0.55), rgba(13, 8, 36, 0.92) 85%),
-        linear-gradient(180deg, rgba(85, 70, 255, 0.35), rgba(3, 166, 255, 0.12));
+    background: rgba(13, 8, 36, 0.72);
 }
 
 /* Masthead */
@@ -96,9 +114,9 @@ h2 .sub {
 }
 
 button {
-    background-color: rgba(85, 70, 255, 0.18);
+    background-color: var(--brand-violet-soft);
     color: var(--text-color);
-    border: 1px solid var(--line);
+    border: 1px solid var(--panel-border);
     padding: 10px 20px;
     border-radius: 999px;
     cursor: pointer;
@@ -107,45 +125,42 @@ button {
     font-weight: 700;
     letter-spacing: 0.01em;
     backdrop-filter: blur(6px);
-    transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+    transition: background-color 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.1s;
 }
 
 button:hover {
-    background-color: rgba(85, 70, 255, 0.4);
+    background-color: rgba(85, 70, 255, 0.32);
     border-color: var(--azure);
-    box-shadow: 0 0 0 3px rgba(3, 166, 255, 0.18);
+    box-shadow: var(--focus-ring);
 }
 
-button:active { transform: scale(0.95); }
+button:active { transform: scale(0.96); }
 
 button:focus-visible {
     outline: 2px solid var(--azure);
     outline-offset: 3px;
 }
 
+/* One solid brand violet, brightened on hover — no gradient fill. */
 #btn-playpause {
-    background: var(--brand-gradient);
+    background-color: var(--violet);
     border-color: transparent;
-    box-shadow: 0 6px 22px rgba(85, 70, 255, 0.5);
+    color: #ffffff;
+    box-shadow: 0 6px 20px rgba(85, 70, 255, 0.42);
 }
 
 #btn-playpause:hover {
-    background: var(--brand-gradient);
-    filter: brightness(1.12);
-    box-shadow: 0 6px 26px rgba(3, 166, 255, 0.55);
+    background-color: #6a5cff;
+    box-shadow: 0 6px 24px rgba(85, 70, 255, 0.6);
 }
 
-/* Game panel with a violet-to-azure frame */
+/* Flat game panel: single hairline border + inset highlight */
 .container {
     padding: 18px;
-    border: 2px solid transparent;
+    border: var(--panel-border);
     border-radius: 18px;
-    background:
-        linear-gradient(var(--panel-bg), var(--panel-bg)) padding-box,
-        var(--brand-gradient) border-box;
-    box-shadow:
-        0 12px 50px rgba(0, 0, 0, 0.55),
-        0 0 60px rgba(85, 70, 255, 0.28);
+    background-color: var(--panel-surface);
+    box-shadow: var(--panel-shadow);
     backdrop-filter: blur(10px);
     max-width: 100%;
 }
@@ -160,13 +175,69 @@ canvas {
 
 .input_video { display: none; }
 
-/* Fullscreen covers the whole page (masthead, controls, game, backdrop) */
+/* Fullscreen = "game mode": the whole page stays (masthead, controls, board,
+   scoreboard, backdrop) but the layout is fitted by flexbox so it can NEVER
+   scroll. Nothing is derived from viewport arithmetic — the body is locked to
+   100vh, the game row takes only the height it needs and may shrink, and the
+   canvas is height-driven with a fixed upscale cap to stay crisp.
+   NB: the fullscreen element is <html>, so body must be styled as a DESCENDANT. */
+html:fullscreen { background-color: var(--ink); overflow: hidden; }
 :fullscreen::backdrop { background: var(--ink); }
+
+html:fullscreen body,
 body:fullscreen {
     width: 100vw;
-    min-height: 100vh;
-    overflow-y: auto;
-    padding: 24px 20px 32px;
+    height: 100vh;
+    overflow: hidden;
+    padding: 14px 18px 18px;
+    justify-content: center; /* the whole stack sits centred, never top-clamped */
+}
+
+/* Slim one-line brand header */
+html:fullscreen .masthead {
+    flex: 0 0 auto;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+}
+html:fullscreen .logo { height: 38px; }
+html:fullscreen h2 { font-size: 1.1rem; }
+html:fullscreen h2 .sub { display: none; }
+
+/* Compact control pills on a single row */
+html:fullscreen .controls-bar {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+html:fullscreen button { padding: 8px 14px; font-size: 0.84rem; }
+html:fullscreen .player-badge { padding: 6px 12px; font-size: 0.82rem; }
+
+/* Game area takes only the height it needs, but may shrink if space is tight */
+html:fullscreen .game-layout {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 100%;
+    flex-wrap: nowrap; /* keep both columns on one row so height stays = one row */
+}
+html:fullscreen .container {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: var(--fs-panel-max);
+    padding: 12px;
+}
+html:fullscreen .output_canvas {
+    height: 100%;                 /* fill the panel's content box */
+    width: auto;                  /* 4:3 preserved from the canvas' intrinsic ratio */
+    max-width: 100%;
+    max-height: var(--fs-canvas-max);
+}
+html:fullscreen .side-panel {
+    min-height: 0;
+    min-width: 180px;
+    max-height: min(100%, var(--fs-panel-max)); /* matches the container exactly */
 }
 
 /* Game + scoreboard layout */
@@ -289,6 +360,13 @@ body:fullscreen {
     margin: 0 0 10px;
     font-size: 0.8rem;
     color: var(--text-dim);
+}
+
+.score-diff {
+    font-weight: 700;
+    color: var(--azure);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .score-list {

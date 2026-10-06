@@ -20,16 +20,17 @@
 
     <header class="masthead">
         <img class="logo" src="logo.svg" alt="ByteCraft">
-        <h2>2D Pong <span class="sub">Vertical / Horizontal Modes</span></h2>
+        <h2>2D Pong <span class="sub">Hand-Tracked · First to 5</span></h2>
     </header>
 
     <div class="controls-bar">
         <span id="player-badge" class="player-badge" hidden></span>
         <button id="btn-playpause">Start (P)</button>
         <button id="btn-footage">Toggle Footage</button>
-        <button id="btn-mode">Rotate Screen</button>
         <button id="btn-switch">Switch Sides</button>
         <button id="btn-fullscreen">Fullscreen</button>
+        <button id="btn-difficulty">Difficulty: Normal</button>
+        <button id="btn-mesh">Hand Mesh: Off</button>
         <button id="btn-name">Change Name</button>
     </div>
 
@@ -42,7 +43,7 @@
         <div class="side-panel">
             <aside class="scoreboard" aria-label="Scoreboard">
                 <h3>🏆 Scoreboard</h3>
-                <p class="score-rule">First to 5 wins</p>
+                <p class="score-rule"><span id="score-diff-label" class="score-diff">Normal</span> board · first to 5 wins</p>
                 <ol id="score-list" class="score-list">
                     <li class="score-empty">No scores yet — be the first!</li>
                 </ol>

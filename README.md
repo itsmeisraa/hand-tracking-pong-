@@ -13,13 +13,16 @@ Still just HTML, CSS and vanilla JavaScript. No build step, no dependencies to i
 ## ✨ Features
 
 * **🖐️ Hand-Tracking Controls** — MediaPipe Hands follows your index finger (landmark 8) and drives your paddle in real time, with the feed mirrored so moving right moves right.
+* **🎯 Three AI Difficulties** — Easy / Normal / Hard, cycling on one button. Each level changes how fast the AI paddle moves and how much tracking slop it has; **Hard** also predicts where the ball will cross its line by solving the trajectory through wall reflections, so it plays the intercept angle instead of chasing the ball.
+* **📈 Live Telemetry HUD** — real FPS, camera→render inference latency in ms, hand-lock state and the active difficulty, drawn right on the board. Toggle a **Hand Mesh** overlay to see the 21 tracked landmarks and their skeleton on your own video.
+* **💥 Game Feel** — the ball leaves a speed-coloured trail, scoring bursts into particles at the scoring edge, and hard paddle hits shake the screen.
 * **🏆 First to 5** — the match ends the moment someone reaches 5 points, with a win/lose screen showing your final scoreline and your leaderboard rank.
-* **📊 Local Leaderboard** — top 10, ranked by points, then by scoreline (`5-0` beats `5-1`), then by whoever got there first. Your own row is highlighted.
+* **📊 Local Leaderboard** — a separate top-10 board for each difficulty, so Easy wins never outrank Hard wins. Ranked by points, then by scoreline (`5-0` beats `5-1`), then by whoever got there first. Your own row is highlighted.
 * **⌨️ Name Gate** — enter your name before playing; it's remembered for next time (max 20 chars). Starting a new game asks for the next player's name.
 * **⏱️ Get-Ready Countdown** — every serve waits 2 seconds with an on-canvas `2 → 1` countdown, so you're never caught flat-footed.
 * **🚧 Half-Court Rule** — the dashed centre line is a real boundary: your paddle is locked to your own half, so the AI can never reach around you.
-* **🔄 Rotatable Layouts** — switch between Horizontal and Vertical play, and flip which side you start on.
-* **📺 Fullscreen** — one button takes the whole page (masthead, controls, board and scoreboard) fullscreen.
+* **🔀 Switch Sides** — flip which half you defend (resets the score).
+* **📺 Fullscreen** — one button takes the whole page (masthead, controls, board and scoreboard) fullscreen, auto-sized to the viewport so it never needs scrolling.
 * **🎵 Retro Audio** — procedurally synthesised beeps and chimes via the Web Audio API. No audio files.
 * **🎥 Footage Toggle** — show or hide the camera feed behind the game.
 
@@ -48,11 +51,12 @@ Still just HTML, CSS and vanilla JavaScript. No build step, no dependencies to i
 | `P` | Play / Pause (and start a new match from the results screen) |
 | **Start (P)** / **Pause (P)** | Same as the `P` key |
 | **Toggle Footage** | Show/hide the camera feed behind the board |
-| **Rotate Screen** | Switch between Horizontal and Vertical play |
 | **Switch Sides** | Swap which half you defend (resets the score) |
 | **Fullscreen** | Fullscreen the entire page |
+| **Difficulty** | Cycle the AI: Normal → Hard → Easy — and the scoreboard switches to that difficulty's own board |
+| **Hand Mesh** | Show/hide the tracked hand landmarks over the video |
 | **Change Name** | Pause and reopen the name prompt |
-| **Clear Board** | Wipe the stored leaderboard |
+| **Clear \<Difficulty\> Board** | Wipe only the board on screen |
 
 ## 💾 Where the scores live
 
