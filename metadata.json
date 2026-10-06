@@ -1,0 +1,6 @@
+{
+  "name": "ByteCraft Pong",
+  "description": "2D hand-tracked Pong game powered by MediaPipe Hands.",
+  "permissions": [],
+  "capabilities": []
+}

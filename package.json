@@ -1,0 +1,14 @@
+{
+  "name": "bytecraft-pong",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'No build step required'",
+    "lint": "node --check server.js script.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

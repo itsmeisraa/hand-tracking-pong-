@@ -44,7 +44,13 @@ const sfx = {
     },
     // Dull, sad descending tone for the AI
     aiScore: () => playTone(150, 'sawtooth', 0.4, 0.2, 50),
-    start: () => playTone(400, 'square', 0.3, 0.1, 800)
+    start: () => playTone(400, 'square', 0.3, 0.1, 800),
+    winnerFanfare: () => {
+        playTone(523.25, 'triangle', 0.15, 0.2); // C5
+        setTimeout(() => playTone(659.25, 'triangle', 0.15, 0.2), 120); // E5
+        setTimeout(() => playTone(783.99, 'triangle', 0.15, 0.2), 240); // G5
+        setTimeout(() => playTone(1046.50, 'triangle', 0.45, 0.25), 360); // C6
+    }
 };
 
 // --- FEATURE STATES ---
@@ -78,7 +84,7 @@ function hideNameModal() { nameModal.hidden = true; nameInput.blur(); }
 function pauseGame() {
     isPlaying = false;
     btnPlayPause.innerText = "Start (P)";
-    btnPlayPause.style.backgroundColor = "#1a5c2b";
+    btnPlayPause.style.backgroundColor = "";
 }
 
 function setPlayerName(name) {
@@ -311,16 +317,65 @@ btnMesh.addEventListener('click', () => {
     btnMesh.innerText = `Hand Mesh: ${showMesh ? 'On' : 'Off'}`;
 });
 
-// --- VISUAL EFFECTS (trail, particles, screen shake) ---
+// --- VISUAL EFFECTS (trail, particles, confetti, screen shake) ---
 const TRAIL_LEN = 16;
 const trail = [];
 const particles = [];
+const confetti = [];
+const CONFETTI_COLORS = ['#ffd700', '#03a6ff', '#5546ff', '#00e676', '#ff007f', '#ffffff', '#ff9100'];
 let shakeMag = 0;
+let currentRally = 0;
+let maxMatchRally = 0;
 
 function addShake(mag) { shakeMag = Math.min(20, shakeMag + mag); }
 
+function spawnConfetti(count = 35) {
+    for (let i = 0; i < count; i++) {
+        confetti.push({
+            x: Math.random() * canvasElement.width,
+            y: -10 - Math.random() * 40,
+            w: 6 + Math.random() * 8,
+            h: 4 + Math.random() * 6,
+            color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+            vx: (Math.random() - 0.5) * 4.5,
+            vy: 2.2 + Math.random() * 3.8,
+            angle: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.18,
+            life: 1,
+            decay: 0.003 + Math.random() * 0.005
+        });
+    }
+}
+
+function updateConfetti() {
+    for (let i = confetti.length - 1; i >= 0; i--) {
+        const c = confetti[i];
+        c.x += c.vx;
+        c.y += c.vy;
+        c.vy += 0.04; // gentle gravity
+        c.angle += c.rotSpeed;
+        c.life -= c.decay;
+        if (c.life <= 0 || c.y > canvasElement.height + 25) {
+            confetti.splice(i, 1);
+        }
+    }
+}
+
+function drawConfetti() {
+    for (const c of confetti) {
+        canvasCtx.save();
+        canvasCtx.globalAlpha = Math.max(0, Math.min(1, c.life));
+        canvasCtx.translate(c.x, c.y);
+        canvasCtx.rotate(c.angle);
+        canvasCtx.fillStyle = c.color;
+        canvasCtx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+        canvasCtx.restore();
+    }
+}
+
 // One place to award a point, so scoring, sfx, board and juice stay in sync.
 function registerPoint(who, burstX, burstY) {
+    currentRally = 0;
     if (who === 'player') {
         player.score++;
         sfx.playerScore();
@@ -388,13 +443,15 @@ function drawTrail() {
 // --- TELEMETRY HUD ---
 const telemetry = { fps: 0, frames: 0, since: 0, inferenceMs: 0, lastSeen: 0, handedness: null, tracked: false };
 let frameSentAt = 0;
+let cameraActive = false;
+let cameraError = null;
 
 function drawTelemetry() {
     const lines = [
         `FPS ${telemetry.fps.toFixed(1)}  ·  AI ${telemetry.inferenceMs.toFixed(1)} ms`,
         telemetry.tracked
             ? `HAND LOCKED${telemetry.handedness ? ' ' + Math.round(telemetry.handedness.score * 100) + '%' : ''}`
-            : 'NO HAND — show your palm',
+            : (cameraError ? 'CAMERA WAITING — Click "Enable Camera"' : 'NO HAND — show your palm'),
         `${difficulty.label.toUpperCase()}  speed ${difficulty.speed}  deadzone ${difficulty.deadzone}  lead ${difficulty.lead}`
     ];
     canvasCtx.save();
@@ -405,8 +462,8 @@ function drawTelemetry() {
     const boxH = lines.length * 16 + 12;
     const x = 12;
     const y = canvasElement.height - boxH - 12;
-    canvasCtx.fillStyle = "rgba(6, 3, 26, 0.55)";
-    canvasCtx.strokeStyle = "rgba(3, 166, 255, 0.35)";
+    canvasCtx.fillStyle = "rgba(6, 3, 26, 0.75)";
+    canvasCtx.strokeStyle = "rgba(3, 166, 255, 0.4)";
     canvasCtx.lineWidth = 1;
     canvasCtx.beginPath();
     canvasCtx.rect(x, y, boxW, boxH);
@@ -446,13 +503,28 @@ function drawHandMesh(landmarks) {
 
 // --- KEYBOARD SHORTCUTS ---
 document.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() !== 'p') return;
-    // Only bail if the name field itself has focus — otherwise a name like
-    // "Poppy" would toggle play. The card being merely visible must NOT block
-    // the shortcut; the button handler decides (no name yet -> show the card).
+    // Only bail if the name field itself has focus — otherwise typing in name would trigger shortcuts
     if (document.activeElement === nameInput) return;
-    e.preventDefault();
-    btnPlayPause.click();
+    const key = e.key.toLowerCase();
+    if (key === 'p') {
+        e.preventDefault();
+        btnPlayPause.click();
+    } else if (key === 's') {
+        e.preventDefault();
+        document.getElementById('btn-switch').click();
+    } else if (key === 'f') {
+        e.preventDefault();
+        document.getElementById('btn-fullscreen').click();
+    } else if (key === 'd') {
+        e.preventDefault();
+        document.getElementById('btn-difficulty').click();
+    } else if (key === 'm') {
+        e.preventDefault();
+        document.getElementById('btn-mesh').click();
+    } else if (key === 'v') {
+        e.preventDefault();
+        document.getElementById('btn-footage').click();
+    }
 });
 
 // --- MATCH RULES (first to 5 wins) ---
@@ -465,15 +537,20 @@ function endMatch(matchWinner) {
     winner = matchWinner;
     isPlaying = false;
     btnPlayPause.innerText = "Play Again (P)";
-    btnPlayPause.style.backgroundColor = "#1a5c2b";
+    btnPlayPause.style.backgroundColor = "";
     ball.x = canvasElement.width / 2;
     ball.y = canvasElement.height / 2;
     ball.vx = 0;
     ball.vy = 0;
     ballHeld = true;
     recordPlayerScore(); // make sure the final name + score lands on the board
-    if (matchWinner === 'player') sfx.playerScore();
-    else sfx.aiScore();
+    if (matchWinner === 'player') {
+        sfx.winnerFanfare();
+        spawnConfetti(80);
+        addShake(8);
+    } else {
+        sfx.aiScore();
+    }
     showGameOverModal(); // session ends here: score + rank + New Game button
 }
 
@@ -490,6 +567,7 @@ function checkMatchEnd() {
 const gameoverModal = document.getElementById('gameover-modal');
 const gameoverTitle = document.getElementById('gameover-title');
 const gameoverScore = document.getElementById('gameover-score');
+const gameoverRally = document.getElementById('gameover-rally');
 const gameoverRank = document.getElementById('gameover-rank');
 
 function playerRank() {
@@ -500,14 +578,26 @@ function playerRank() {
 function showGameOverModal() {
     const name = (playerName || 'Player').slice(0, 20);
     const won = winner === 'player';
-    gameoverTitle.textContent = won ? `🏆 ${name} won!` : '🤖 AI wins — you didn\'t win';
-    gameoverScore.textContent = `${name} ${player.score}-${ai.score} AI`;
+    gameoverTitle.textContent = won ? `🏆 ${name} Won!` : '🤖 AI Wins Match';
+    gameoverScore.textContent = `${name} ${player.score} — ${ai.score} AI`;
+    if (gameoverRally) {
+        gameoverRally.textContent = `Longest Rally: ${maxMatchRally} hits · Speed: ${difficulty.speed}x`;
+    }
     const rank = playerRank();
     const medal = rank !== null && rank <= 3 ? ` ${MEDALS[rank - 1]}` : '';
     const board = DIFFICULTIES[matchDifficulty].label;
     gameoverRank.textContent = rank === null
         ? `Unranked on the ${board} board — outside the top ${MAX_BOARD_ENTRIES}`
-        : `${board} rank: #${rank}${medal}`;
+        : `${board} Leaderboard: #${rank}${medal}`;
+
+    const modalDialog = gameoverModal.querySelector('.modal');
+    if (modalDialog) {
+        if (won) modalDialog.classList.add('is-winner');
+        else modalDialog.classList.remove('is-winner');
+    }
+    const badge = document.getElementById('gameover-badge');
+    if (badge) badge.textContent = won ? '🏆' : '🤖';
+
     gameoverModal.hidden = false;
 }
 
@@ -539,15 +629,30 @@ btnPlayPause.addEventListener('click', (e) => {
     }
     isPlaying = !isPlaying;
     e.target.innerText = isPlaying ? "Pause (P)" : "Start (P)";
-    e.target.style.backgroundColor = isPlaying ? "#7a2222" : "#1a5c2b"; 
+    e.target.style.backgroundColor = isPlaying ? "#e11d48" : ""; 
     if (isPlaying) {
         if (ballHeld) armCountdown(); // fresh 2s every (re)start so the user can get ready
         sfx.start();
     }
 });
 
-document.getElementById('btn-footage').addEventListener('click', () => {
-    showFootage = !showFootage;
+function updateFootageButtonText() {
+    const btn = document.getElementById('btn-footage');
+    if (!btn) return;
+    if (cameraError || !cameraActive) {
+        btn.innerText = 'Enable Camera (V)';
+    } else {
+        btn.innerText = showFootage ? 'Hide Footage (V)' : 'Show Footage (V)';
+    }
+}
+
+document.getElementById('btn-footage').addEventListener('click', async () => {
+    if (!cameraActive) {
+        await startCamera();
+    } else {
+        showFootage = !showFootage;
+    }
+    updateFootageButtonText();
 });
 
 document.getElementById('btn-switch').addEventListener('click', () => {
@@ -565,15 +670,15 @@ document.getElementById('btn-fullscreen').addEventListener('click', () => {
     }
 });
 
-// --- PHYSICS SETTINGS ---
-const SUBSTEPS = 10; 
-
-// --- POINTER TRACKING VARIABLES ---
+// --- POINTER TRACKING VARIABLES (Hand Landmark #8) ---
 let targetPointerX = 320; 
 let targetPointerY = 240;
 let currentPointerX = 320; 
 let currentPointerY = 240;
 const SMOOTHING_FACTOR = 0.5;
+
+// --- PHYSICS SETTINGS ---
+const SUBSTEPS = 10;
 
 // --- BALL LAUNCH COUNTDOWN (2s to get ready) ---
 const COUNTDOWN_MS = 2000;
@@ -657,6 +762,8 @@ function updatePaddleDimensions() {
 function resetGame() {
     player.score = 0;
     ai.score = 0;
+    currentRally = 0;
+    maxMatchRally = 0;
     gameOver = false;
     winner = null;
     matchDifficulty = difficultyKey; // results are filed under the match's difficulty
@@ -720,10 +827,12 @@ function handleRectCollision(rectCenterX, rectCenterY, rectWidth, rectHeight, pa
 
         if (bounced) {
             sfx.paddle();
+            currentRally++;
+            if (currentRally > maxMatchRally) maxMatchRally = currentRally;
             // Impact feedback: sparks at the contact point + a shake scaled to
             // how hard the ball was hit (fast hits feel violent, soft ones don't).
             addShake(Math.min(7, ball.speed * 0.28));
-            spawnBurst(ball.x, ball.y, paddleRgb, 10, 2.4);
+            spawnBurst(ball.x, ball.y, paddleRgb, 12, 2.6);
         } 
 
         ball.vx += paddleVelocityX * 0.7; 
@@ -758,17 +867,17 @@ function onResults(results) {
     }
     if (frameSentAt) telemetry.inferenceMs = perfNow - frameSentAt;
 
-    if (showFootage) {
+    if (showFootage && results && results.image) {
         canvasCtx.save();
         canvasCtx.scale(-1, 1);
         canvasCtx.drawImage(results.image, -canvasElement.width, 0, canvasElement.width, canvasElement.height);
         canvasCtx.restore();
     } else {
-        canvasCtx.fillStyle = '#000000';
+        canvasCtx.fillStyle = '#050314';
         canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     }
 
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    if (results && results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
         telemetry.tracked = true;
         telemetry.lastSeen = perfNow;
@@ -871,6 +980,7 @@ function onResults(results) {
     }
 
     updateParticles();
+    updateConfetti();
     drawTrail();
 
     canvasCtx.beginPath();
@@ -903,17 +1013,61 @@ function onResults(results) {
     canvasCtx.shadowBlur = 0; 
 
     drawParticles();
+    drawConfetti();
 
-    
-    canvasCtx.font = "bold 24px monospace";
-    canvasCtx.fillStyle = "rgba(0, 230, 118, 1)";
-    const displayName = (playerName || 'PLAYER').toUpperCase().slice(0, 12);
-    canvasCtx.fillText(`${displayName}: ${player.score}`, 20, 40);
-    
-    canvasCtx.fillStyle = "rgba(255, 82, 82, 1)";
-    const aiText = `AI: ${ai.score}`;
-    const textMetrics = canvasCtx.measureText(aiText);
-    canvasCtx.fillText(aiText, canvasElement.width - textMetrics.width - 20, 40);
+    // Top HUD Score & Rally Display
+    canvasCtx.save();
+    const displayName = (playerName || 'PLAYER').toUpperCase().slice(0, 10);
+    const pScoreText = `${displayName}: ${player.score}`;
+    const aiScoreText = `AI: ${ai.score}`;
+
+    // Score box - Player (Left or Right depending on isSwapped)
+    const playerOnRight = isSwapped;
+    const pX = playerOnRight ? canvasElement.width - 150 : 20;
+    const aiX = playerOnRight ? 20 : canvasElement.width - 110;
+
+    // Player Score Badge
+    canvasCtx.fillStyle = "rgba(8, 5, 24, 0.75)";
+    canvasCtx.strokeStyle = "rgba(0, 230, 118, 0.6)";
+    canvasCtx.lineWidth = 1;
+    canvasCtx.beginPath();
+    canvasCtx.roundRect(pX - 6, 14, 136, 32, 6);
+    canvasCtx.fill();
+    canvasCtx.stroke();
+
+    canvasCtx.font = "bold 15px monospace";
+    canvasCtx.fillStyle = "#00e676";
+    canvasCtx.textAlign = "center";
+    canvasCtx.fillText(pScoreText, pX + 62, 35);
+
+    // AI Score Badge
+    canvasCtx.fillStyle = "rgba(8, 5, 24, 0.75)";
+    canvasCtx.strokeStyle = "rgba(255, 82, 82, 0.6)";
+    canvasCtx.lineWidth = 1;
+    canvasCtx.beginPath();
+    canvasCtx.roundRect(aiX - 6, 14, 96, 32, 6);
+    canvasCtx.fill();
+    canvasCtx.stroke();
+
+    canvasCtx.font = "bold 15px monospace";
+    canvasCtx.fillStyle = "#ff5252";
+    canvasCtx.fillText(aiScoreText, aiX + 42, 35);
+
+    // Live Center Rally Counter
+    if (isPlaying && !ballHeld && currentRally > 0) {
+        canvasCtx.fillStyle = "rgba(8, 5, 24, 0.8)";
+        canvasCtx.strokeStyle = "rgba(3, 166, 255, 0.7)";
+        canvasCtx.lineWidth = 1;
+        canvasCtx.beginPath();
+        canvasCtx.roundRect(canvasElement.width / 2 - 64, 14, 128, 32, 6);
+        canvasCtx.fill();
+        canvasCtx.stroke();
+
+        canvasCtx.font = "bold 13px monospace";
+        canvasCtx.fillStyle = "#03a6ff";
+        canvasCtx.fillText(`⚡ RALLY: ${currentRally}`, canvasElement.width / 2, 35);
+    }
+    canvasCtx.restore();
 
     if (isPlaying && ballHeld) {
         const remaining = Math.max(0, countdownEnd - now);
@@ -931,6 +1085,9 @@ function onResults(results) {
     }
 
     if (gameOver) {
+        if (winner === 'player' && Math.random() < 0.4) {
+            spawnConfetti(2); // continuous gentle celebratory confetti
+        }
         canvasCtx.fillStyle = "rgba(0, 0, 0, 0.45)";
         canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
         canvasCtx.textAlign = "center";
@@ -957,19 +1114,19 @@ function onResults(results) {
     }
 
     if (!isPlaying && !gameOver) {
-        canvasCtx.fillStyle = "rgba(0, 0, 0, 0.25)";
+        canvasCtx.fillStyle = "rgba(0, 0, 0, 0.4)";
         canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
         
         canvasCtx.textAlign = "center";
         
-        canvasCtx.font = "bold 48px monospace";
+        canvasCtx.font = "bold 44px monospace";
         canvasCtx.fillStyle = "#FFFFFF";
-        canvasCtx.fillText("PAUSED", canvasElement.width / 2, canvasElement.height / 2 - 20);
+        canvasCtx.fillText("PAUSED", canvasElement.width / 2, canvasElement.height / 2 - 24);
         
-        canvasCtx.font = "16px system-ui, sans-serif";
+        canvasCtx.font = "16px 'Quicksand', system-ui, sans-serif";
         canvasCtx.fillStyle = "#E0E0E0";
-        canvasCtx.fillText("Move your hand in front of the camera", canvasElement.width / 2, canvasElement.height / 2 + 25);
-        canvasCtx.fillText("to control your paddle. Press 'P' to Play/Pause.", canvasElement.width / 2, canvasElement.height / 2 + 50);
+        canvasCtx.fillText("Move your hand in front of the camera", canvasElement.width / 2, canvasElement.height / 2 + 15);
+        canvasCtx.fillText("to control your paddle. Press 'P' to Play/Pause.", canvasElement.width / 2, canvasElement.height / 2 + 38);
 
         canvasCtx.textAlign = "left"; 
     }
@@ -990,15 +1147,74 @@ const hands = new Hands({locateFile: (file) => {
 hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 hands.onResults(onResults);
 
-const camera = new Camera(videoElement, {
-    onFrame: async () => {
-        frameSentAt = performance.now(); // lets onResults report inference latency
-        await hands.send({image: videoElement});
-    },
-    width: 640, height: 480
-});
+let mediaStream = null;
+let isProcessingFrame = false;
 
-camera.start();
+function requestVideoProcessing() {
+    if (!cameraActive || !videoElement || videoElement.paused || videoElement.ended) return;
+    
+    if ('requestVideoFrameCallback' in videoElement) {
+        videoElement.requestVideoFrameCallback(async () => {
+            if (cameraActive && !isProcessingFrame) {
+                isProcessingFrame = true;
+                frameSentAt = performance.now();
+                try {
+                    await hands.send({ image: videoElement });
+                } catch (e) {}
+                isProcessingFrame = false;
+            }
+            requestVideoProcessing();
+        });
+    } else {
+        const process = async () => {
+            if (cameraActive && !isProcessingFrame) {
+                isProcessingFrame = true;
+                frameSentAt = performance.now();
+                try {
+                    await hands.send({ image: videoElement });
+                } catch (e) {}
+                isProcessingFrame = false;
+            }
+            if (cameraActive) requestAnimationFrame(process);
+        };
+        requestAnimationFrame(process);
+    }
+}
+
+async function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        cameraActive = false;
+        cameraError = 'Webcam not supported';
+        updateFootageButtonText();
+        return;
+    }
+    try {
+        cameraError = null;
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        videoElement.srcObject = mediaStream;
+        await videoElement.play();
+        cameraActive = true;
+        updateFootageButtonText();
+        requestVideoProcessing();
+    } catch (err) {
+        cameraActive = false;
+        cameraError = (err && err.name) ? err.name : 'Permission denied';
+        updateFootageButtonText();
+    }
+}
+
+// Fallback render loop when camera is not running frames
+function rafLoop() {
+    if (!cameraActive) {
+        onResults({ image: null, multiHandLandmarks: [] });
+    }
+    requestAnimationFrame(rafLoop);
+}
+requestAnimationFrame(rafLoop);
+
+startCamera();
 applyDifficulty();
 updatePaddleDimensions();
 resetBall();

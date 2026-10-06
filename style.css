@@ -1,41 +1,46 @@
 :root {
-    /* ByteCraft brand, sampled from logo.svg */
+    /* ByteCraft brand colors */
     --violet: #5546ff;
+    --violet-hover: #6a5dff;
+    --violet-active: #4738eb;
     --azure: #03a6ff;
-
-    --ink: #0d0824;          /* deepest violet-navy */
-    --panel-bg: rgba(20, 13, 56, 0.78);
-    --text-color: #f1efff;
-    --text-dim: #b7b0f0;
-    --line: rgba(130, 118, 255, 0.45);
-
-    --brand-violet-soft: rgba(85, 70, 255, 0.16);
+    --azure-hover: #26b4ff;
+    
+    --ink: #080518;
+    --panel-bg: rgba(15, 10, 38, 0.88);
+    --panel-surface: rgba(18, 12, 46, 0.85);
+    --panel-surface-hover: rgba(26, 18, 64, 0.9);
+    
+    --text-color: #f6f5ff;
+    --text-dim: #a59ee8;
+    --text-muted: #726ba8;
+    
+    --line: rgba(85, 70, 255, 0.32);
+    --line-subtle: rgba(85, 70, 255, 0.18);
+    --line-active: #03a6ff;
+    
+    --brand-violet-soft: rgba(85, 70, 255, 0.14);
     --brand-azure-soft: rgba(3, 166, 255, 0.14);
-
-    /* Flat panel recipe — no gradients anywhere. One hairline border in the
-       brand violet, an inset top highlight for depth, one soft shadow. Panels
-       share these so the whole UI reads as a single clean system. */
-    --panel-border: 1px solid rgba(85, 70, 255, 0.5);
-    --panel-surface: rgba(16, 10, 42, 0.72);
-    --panel-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        0 10px 30px rgba(0, 0, 0, 0.45);
-    --focus-ring: 0 0 0 3px rgba(3, 166, 255, 0.28);
-
-    /* Height of the framed game panel: 480px canvas + 2*18px padding + 2*2px border.
-       The side column is capped to this so the scoreboard scrolls internally
-       instead of stretching the page. Update if the canvas size in index.html changes. */
+    
+    --accent-green: #00e676;
+    --accent-red: #ff5252;
+    
+    /* Clean flat panel styling - No gradients */
+    --panel-border: 1px solid rgba(85, 70, 255, 0.4);
+    --panel-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+    --focus-ring: 0 0 0 3px rgba(3, 166, 255, 0.3);
+    
+    /* Height of the framed game panel */
     --game-panel-h: 520px;
-
-    /* Fullscreen upscale caps. The canvas drawing buffer is 640x480, so scaling
-       past ~1.3x looks soft. --fs-panel-max stays 28px above the canvas cap
-       (2*12px container padding + 2*2px border) so the side column is exactly
-       flush with the game panel. Raise both to fill larger screens. */
+    
+    /* Fullscreen caps */
     --fs-canvas-max: 624px;
     --fs-panel-max: 652px;
 }
 
-* { box-sizing: border-box; }
+* {
+    box-sizing: border-box;
+}
 
 body {
     font-family: "Quicksand", system-ui, -apple-system, sans-serif;
@@ -45,13 +50,13 @@ body {
     flex-direction: column;
     align-items: center;
     margin: 0;
-    padding: 24px 20px 32px;
+    padding: 24px 20px 48px;
     min-height: 100vh;
     position: relative;
     isolation: isolate;
 }
 
-/* Painting from Bg.png, shifted from blue toward violet, then veiled so the UI stays readable */
+/* Subtle clean ambient backdrop */
 body::before,
 body::after {
     content: "";
@@ -63,13 +68,11 @@ body::after {
 
 body::before {
     background: url("Bg.png") center / cover no-repeat;
-    filter: hue-rotate(28deg) saturate(1.1);
+    filter: hue-rotate(28deg) saturate(1.05) brightness(0.9);
 }
 
-/* Flat veil over the artwork so text stays readable — a single solid tint,
-   no gradient wash. */
 body::after {
-    background: rgba(13, 8, 36, 0.72);
+    background: rgba(8, 5, 24, 0.78);
 }
 
 /* Masthead */
@@ -77,289 +80,185 @@ body::after {
     display: flex;
     align-items: center;
     gap: 18px;
-    margin-bottom: 22px;
+    margin-bottom: 20px;
 }
 
 .logo {
-    height: 64px;
+    height: 56px;
     width: auto;
-    filter: drop-shadow(0 4px 18px rgba(85, 70, 255, 0.6));
+    filter: drop-shadow(0 4px 14px rgba(85, 70, 255, 0.5));
+}
+
+.masthead-text {
+    display: flex;
+    flex-direction: column;
 }
 
 h2 {
     margin: 0;
-    font-size: clamp(1.4rem, 3.4vw, 2rem);
+    font-size: clamp(1.4rem, 3.2vw, 1.9rem);
     font-weight: 700;
     letter-spacing: 0.01em;
     line-height: 1.1;
-    text-align: left;
+    color: #ffffff;
 }
 
-h2 .sub {
-    display: block;
+.masthead-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-top: 4px;
-    font-size: 0.8rem;
-    font-weight: 500;
+    font-size: 0.85rem;
+    font-weight: 600;
     color: var(--text-dim);
-    letter-spacing: 0.02em;
 }
 
-/* Controls */
+.masthead-sub .sep {
+    color: var(--text-muted);
+}
+
+/* Controls Bar */
 .controls-bar {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
     flex-wrap: wrap;
     justify-content: center;
+    align-items: center;
 }
 
 button {
-    background-color: var(--brand-violet-soft);
+    background-color: var(--panel-surface);
     color: var(--text-color);
-    border: 1px solid var(--panel-border);
-    padding: 10px 20px;
-    border-radius: 999px;
+    border: var(--panel-border);
+    padding: 10px 18px;
+    border-radius: 10px;
     cursor: pointer;
     font-family: inherit;
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     font-weight: 700;
     letter-spacing: 0.01em;
-    backdrop-filter: blur(6px);
-    transition: background-color 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.1s;
+    backdrop-filter: blur(8px);
+    transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.1s ease, box-shadow 0.16s ease;
 }
 
 button:hover {
-    background-color: rgba(85, 70, 255, 0.32);
+    background-color: var(--panel-surface-hover);
     border-color: var(--azure);
-    box-shadow: var(--focus-ring);
+    box-shadow: 0 4px 16px rgba(3, 166, 255, 0.2);
 }
 
-button:active { transform: scale(0.96); }
+button:active {
+    transform: scale(0.97);
+}
 
 button:focus-visible {
-    outline: 2px solid var(--azure);
-    outline-offset: 3px;
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-color: var(--azure);
 }
 
-/* One solid brand violet, brightened on hover — no gradient fill. */
+/* Primary Play Button */
 #btn-playpause {
     background-color: var(--violet);
-    border-color: transparent;
+    border-color: var(--violet);
     color: #ffffff;
-    box-shadow: 0 6px 20px rgba(85, 70, 255, 0.42);
+    box-shadow: 0 4px 18px rgba(85, 70, 255, 0.35);
 }
 
 #btn-playpause:hover {
-    background-color: #6a5cff;
-    box-shadow: 0 6px 24px rgba(85, 70, 255, 0.6);
+    background-color: var(--violet-hover);
+    border-color: var(--azure);
+    box-shadow: 0 4px 24px rgba(85, 70, 255, 0.55);
 }
 
-/* Flat game panel: single hairline border + inset highlight */
+.player-badge {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--azure);
+    background-color: rgba(3, 166, 255, 0.12);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Game Area Layout */
+.game-layout {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 1020px;
+}
+
 .container {
-    padding: 18px;
+    padding: 16px;
     border: var(--panel-border);
-    border-radius: 18px;
-    background-color: var(--panel-surface);
+    border-radius: 16px;
+    background-color: var(--panel-bg);
     box-shadow: var(--panel-shadow);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
     max-width: 100%;
 }
 
 canvas {
     display: block;
     border-radius: 10px;
-    background-color: #06031a;
+    background-color: #050314;
     cursor: none;
     max-width: 100%;
+    border: 1px solid rgba(85, 70, 255, 0.2);
 }
 
-.input_video { display: none; }
-
-/* Fullscreen = "game mode": the whole page stays (masthead, controls, board,
-   scoreboard, backdrop) but the layout is fitted by flexbox so it can NEVER
-   scroll. Nothing is derived from viewport arithmetic — the body is locked to
-   100vh, the game row takes only the height it needs and may shrink, and the
-   canvas is height-driven with a fixed upscale cap to stay crisp.
-   NB: the fullscreen element is <html>, so body must be styled as a DESCENDANT. */
-html:fullscreen { background-color: var(--ink); overflow: hidden; }
-:fullscreen::backdrop { background: var(--ink); }
-
-html:fullscreen body,
-body:fullscreen {
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    padding: 14px 18px 18px;
-    justify-content: center; /* the whole stack sits centred, never top-clamped */
+.input_video {
+    display: none;
 }
 
-/* Slim one-line brand header */
-html:fullscreen .masthead {
-    flex: 0 0 auto;
-    gap: 12px;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--line);
-}
-html:fullscreen .logo { height: 38px; }
-html:fullscreen h2 { font-size: 1.1rem; }
-html:fullscreen h2 .sub { display: none; }
-
-/* Compact control pills on a single row */
-html:fullscreen .controls-bar {
-    flex: 0 0 auto;
-    flex-wrap: nowrap;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-html:fullscreen button { padding: 8px 14px; font-size: 0.84rem; }
-html:fullscreen .player-badge { padding: 6px 12px; font-size: 0.82rem; }
-
-/* Game area takes only the height it needs, but may shrink if space is tight */
-html:fullscreen .game-layout {
-    flex: 0 1 auto;
-    min-height: 0;
-    max-height: 100%;
-    flex-wrap: nowrap; /* keep both columns on one row so height stays = one row */
-}
-html:fullscreen .container {
-    flex: 0 1 auto;
-    min-height: 0;
-    max-height: var(--fs-panel-max);
-    padding: 12px;
-}
-html:fullscreen .output_canvas {
-    height: 100%;                 /* fill the panel's content box */
-    width: auto;                  /* 4:3 preserved from the canvas' intrinsic ratio */
-    max-width: 100%;
-    max-height: var(--fs-canvas-max);
-}
-html:fullscreen .side-panel {
-    min-height: 0;
-    min-width: 180px;
-    max-height: min(100%, var(--fs-panel-max)); /* matches the container exactly */
-}
-
-/* Game + scoreboard layout */
-.game-layout {
-    display: flex;
-    gap: 18px;
-    align-items: stretch; /* side panel stretches to the game canvas height */
-    justify-content: center;
-    flex-wrap: wrap;
-    width: 100%;
-}
-
-/* Right-hand column: scoreboard + name entry card.
-   Their heights must sum to the game panel height, so the scoreboard
-   takes the leftover space (flex-grow) and the card keeps its own size. */
+/* Side Panel Column */
 .side-panel {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    flex: 1 1 260px;
-    min-width: 240px;
-    max-width: 340px;
-    max-height: var(--game-panel-h); /* hard cap: long boards scroll, page never grows */
+    flex: 1 1 270px;
+    min-width: 250px;
+    max-width: 330px;
+    max-height: var(--game-panel-h);
 }
 
 .scoreboard {
-    flex: 1 1 auto; /* absorbs the height the entry card doesn't use */
+    flex: 1 1 auto;
     min-height: 0;
-    min-width: 0;
-    max-width: none;
     display: flex;
     flex-direction: column;
-    padding: 16px 18px;
-    border: 2px solid transparent;
-    border-radius: 18px;
-    background:
-        linear-gradient(var(--panel-bg), var(--panel-bg)) padding-box,
-        var(--brand-gradient) border-box;
-    box-shadow:
-        0 12px 50px rgba(0, 0, 0, 0.55),
-        0 0 60px rgba(85, 70, 255, 0.28);
-    backdrop-filter: blur(10px);
-}
-
-/* Name entry card (sits under the scoreboard, not over the page) */
-.entry-card {
-    flex: 0 0 auto;
     padding: 18px;
-    text-align: center;
-    border: 2px solid transparent;
-    border-radius: 18px;
-    background:
-        linear-gradient(rgba(20, 13, 56, 0.92), rgba(20, 13, 56, 0.92)) padding-box,
-        var(--brand-gradient) border-box;
-    box-shadow:
-        0 12px 50px rgba(0, 0, 0, 0.55),
-        0 0 60px rgba(85, 70, 255, 0.28);
-    backdrop-filter: blur(10px);
+    border: var(--panel-border);
+    border-radius: 16px;
+    background-color: var(--panel-bg);
+    box-shadow: var(--panel-shadow);
+    backdrop-filter: blur(12px);
 }
 
-.entry-card[hidden] { display: none; }
-
-.entry-card h3 {
-    margin: 0 0 4px;
-    font-size: 1.05rem;
-}
-
-.entry-card p {
-    margin: 0 0 14px;
-    font-size: 0.9rem;
-    color: var(--text-dim);
-}
-
-.entry-card form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.entry-card input {
-    width: 100%;
-    padding: 11px 14px;
-    border-radius: 999px;
-    border: 2px solid var(--line);
-    background: rgba(6, 3, 26, 0.65);
-    color: var(--text-color);
-    font: inherit;
-    text-align: center;
-}
-
-.entry-card input::placeholder { color: var(--text-dim); }
-
-.entry-card input:focus {
-    outline: none;
-    border-color: var(--azure);
-    box-shadow: 0 0 0 3px rgba(3, 166, 255, 0.2);
-}
-
-.entry-card button[type="submit"] {
-    width: 100%;
-    background: var(--brand-gradient);
-    border-color: transparent;
-    box-shadow: 0 6px 22px rgba(85, 70, 255, 0.5);
-}
-
-.entry-card button[type="submit"]:hover {
-    background: var(--brand-gradient);
-    filter: brightness(1.12);
-    box-shadow: 0 6px 26px rgba(3, 166, 255, 0.55);
+.score-header {
+    flex: 0 0 auto;
+    margin-bottom: 12px;
 }
 
 .scoreboard h3 {
-    flex: 0 0 auto;
-    margin: 0 0 2px;
+    margin: 0 0 3px;
     font-size: 1.1rem;
+    font-weight: 700;
+    color: #ffffff;
 }
 
 .score-rule {
-    flex: 0 0 auto;
-    margin: 0 0 10px;
+    margin: 0;
     font-size: 0.8rem;
     color: var(--text-dim);
+    font-weight: 600;
 }
 
 .score-diff {
@@ -371,40 +270,37 @@ html:fullscreen .side-panel {
 
 .score-list {
     list-style: none;
-    margin: 0 0 12px;
-    padding: 0 4px 0 0; /* room for the scrollbar */
+    margin: 0 0 14px;
+    padding: 0 4px 0 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    flex: 1 1 auto; /* fills the panel, scrolls when the board is long */
+    gap: 7px;
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     scroll-behavior: smooth;
-
-    /* Firefox */
+    
     scrollbar-width: thin;
-    scrollbar-color: var(--violet) rgba(85, 70, 255, 0.12);
+    scrollbar-color: var(--violet) rgba(85, 70, 255, 0.1);
 }
 
-/* Chrome / Edge / Safari */
-.score-list::-webkit-scrollbar { width: 10px; }
+.score-list::-webkit-scrollbar {
+    width: 6px;
+}
 
 .score-list::-webkit-scrollbar-track {
-    background: rgba(85, 70, 255, 0.12);
-    border-radius: 999px;
+    background: rgba(85, 70, 255, 0.08);
+    border-radius: 8px;
 }
 
 .score-list::-webkit-scrollbar-thumb {
-    background: var(--brand-gradient);
-    background-clip: padding-box;
-    border: 2px solid transparent;
-    border-radius: 999px;
+    background: var(--violet);
+    border-radius: 8px;
 }
 
 .score-list::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, var(--azure), var(--violet));
-    background-clip: padding-box;
+    background: var(--azure);
 }
 
 .score-list li {
@@ -412,33 +308,42 @@ html:fullscreen .side-panel {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: 8px;
-    background: rgba(85, 70, 255, 0.14);
-    border: 1px solid var(--line);
-    font-size: 0.9rem;
+    background-color: rgba(85, 70, 255, 0.1);
+    border: 1px solid var(--line-subtle);
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.score-list li:hover {
+    background-color: rgba(85, 70, 255, 0.16);
+    border-color: var(--line);
 }
 
 .score-rank {
     flex: 0 0 auto;
-    min-width: 1.5rem;
+    min-width: 1.4rem;
     text-align: center;
     font-size: 0.95rem;
 }
 
 .score-rank.num {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--text-dim);
 }
 
 .score-list li.me {
     border-color: var(--azure);
-    box-shadow: 0 0 0 2px rgba(3, 166, 255, 0.25);
+    background-color: rgba(3, 166, 255, 0.15);
 }
 
 .score-list .score-empty {
     justify-content: center;
     color: var(--text-dim);
+    font-size: 0.84rem;
+    padding: 16px 8px;
 }
 
 .score-name {
@@ -451,77 +356,316 @@ html:fullscreen .side-panel {
 .score-points {
     flex: 0 0 auto;
     font-weight: 700;
+    color: var(--azure);
     font-variant-numeric: tabular-nums;
 }
 
 .btn-danger {
-    flex: 0 0 auto; /* keep the Clear Board button from being squashed */
+    flex: 0 0 auto;
     width: 100%;
-    padding: 8px 12px;
-    font-size: 0.85rem;
+    padding: 9px 12px;
+    font-size: 0.82rem;
+    background-color: rgba(255, 82, 82, 0.12);
+    border-color: rgba(255, 82, 82, 0.3);
+    color: #ff9494;
 }
 
-.player-badge {
-    align-self: center;
-    padding: 8px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: rgba(3, 166, 255, 0.15);
+.btn-danger:hover {
+    background-color: rgba(255, 82, 82, 0.22);
+    border-color: var(--accent-red);
+    box-shadow: 0 4px 14px rgba(255, 82, 82, 0.2);
+}
+
+/* Name Gate Panel */
+.entry-card {
+    flex: 0 0 auto;
+    padding: 18px;
+    text-align: center;
+    border: var(--panel-border);
+    border-radius: 16px;
+    background-color: var(--panel-bg);
+    box-shadow: var(--panel-shadow);
+    backdrop-filter: blur(12px);
+}
+
+.entry-card[hidden] {
+    display: none;
+}
+
+.entry-card h3 {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
     font-weight: 700;
-    font-size: 0.9rem;
+    color: #ffffff;
 }
 
-/* Name gate / game-over prompt card — a card only, so the game and
-   scoreboard stay visible behind it (never restore a full-page scrim) */
+.entry-card p {
+    margin: 0 0 12px;
+    font-size: 0.84rem;
+    color: var(--text-dim);
+}
+
+.entry-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.entry-card input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background-color: rgba(5, 3, 20, 0.7);
+    color: var(--text-color);
+    font: inherit;
+    font-size: 0.9rem;
+    text-align: center;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.entry-card input::placeholder {
+    color: var(--text-muted);
+}
+
+.entry-card input:focus {
+    outline: none;
+    border-color: var(--azure);
+    box-shadow: var(--focus-ring);
+}
+
+.entry-card button[type="submit"] {
+    width: 100%;
+    background-color: var(--violet);
+    border-color: var(--violet);
+    color: #ffffff;
+    box-shadow: 0 4px 16px rgba(85, 70, 255, 0.35);
+}
+
+.entry-card button[type="submit"]:hover {
+    background-color: var(--violet-hover);
+    border-color: var(--azure);
+    box-shadow: 0 4px 20px rgba(85, 70, 255, 0.5);
+}
+
+/* Modal Overlay (Game Over Card) */
 .modal-overlay {
     position: fixed;
     inset: 0;
-    z-index: 10;
+    z-index: 100;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: transparent;
-    pointer-events: none; /* clicks fall through to the game/scoreboard behind */
+    background-color: rgba(8, 5, 24, 0.7);
+    backdrop-filter: blur(5px);
 }
 
-.modal-overlay[hidden] { display: none; }
+.modal-overlay[hidden] {
+    display: none;
+}
 
 .modal {
-    pointer-events: auto; /* the card itself stays interactive */
-    width: min(380px, 100%);
-    padding: 26px 24px;
+    pointer-events: auto;
+    width: min(400px, 100%);
+    padding: 28px 24px;
     border-radius: 18px;
     text-align: center;
-    border: 2px solid transparent;
-    background:
-        linear-gradient(rgba(13, 8, 36, 0.94), rgba(13, 8, 36, 0.94)) padding-box,
-        var(--brand-gradient) border-box;
-    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--azure);
+    background-color: var(--panel-surface);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+    animation: modalPop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.modal h3 { margin: 0 0 6px; }
-.modal p { margin: 0 0 14px; }
+@keyframes modalPop {
+    0% { transform: scale(0.85); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.winner-trophy {
+    font-size: 3rem;
+    line-height: 1;
+    margin: 0 auto 10px;
+    filter: drop-shadow(0 4px 16px rgba(255, 215, 0, 0.6));
+    animation: trophyBounce 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes trophyBounce {
+    0% { transform: translateY(0) scale(1); }
+    100% { transform: translateY(-8px) scale(1.1); filter: drop-shadow(0 8px 24px rgba(255, 215, 0, 0.9)); }
+}
+
+.modal.is-winner {
+    border-color: #00e676;
+    box-shadow: 0 0 40px rgba(0, 230, 118, 0.35), 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.modal h3 {
+    margin: 0 0 8px;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #ffffff;
+}
 
 .gameover-score {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-color);
-    margin: 0 0 6px;
+    color: #ffffff;
+    margin: 0 0 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.gameover-rally {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin: 0 0 8px;
 }
 
 .gameover-rank {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--azure);
+    margin: 0 0 20px;
 }
 
-@media (max-width: 520px) {
-    .masthead { gap: 12px; }
-    .logo { height: 48px; }
-    .container { padding: 12px; }
+#btn-newgame {
+    width: 100%;
+    background-color: var(--violet);
+    border-color: var(--violet);
+    color: #ffffff;
+    padding: 12px;
+    font-size: 0.95rem;
+    box-shadow: 0 4px 18px rgba(85, 70, 255, 0.4);
+}
+
+#btn-newgame:hover {
+    background-color: var(--violet-hover);
+    border-color: var(--azure);
+    box-shadow: 0 4px 24px rgba(85, 70, 255, 0.6);
+}
+
+/* Fullscreen Mode */
+html:fullscreen {
+    background-color: var(--ink);
+    overflow: hidden;
+}
+
+:fullscreen::backdrop {
+    background: var(--ink);
+}
+
+html:fullscreen body,
+body:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    padding: 12px 20px 16px;
+    justify-content: center;
+}
+
+html:fullscreen .masthead {
+    flex: 0 0 auto;
+    gap: 16px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-subtle);
+    align-items: center;
+}
+
+html:fullscreen .logo {
+    height: 54px;
+    width: auto;
+    filter: drop-shadow(0 4px 18px rgba(85, 70, 255, 0.7));
+}
+
+html:fullscreen h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.01em;
+}
+
+html:fullscreen .masthead-sub {
+    display: flex;
+    font-size: 0.78rem;
+    margin-top: 2px;
+    color: var(--text-dim);
+}
+
+html:fullscreen .controls-bar {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+html:fullscreen button {
+    padding: 8px 15px;
+    font-size: 0.84rem;
+    border-radius: 8px;
+}
+
+html:fullscreen .player-badge {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+}
+
+html:fullscreen .game-layout {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 100%;
+    flex-wrap: nowrap;
+    gap: 16px;
+}
+
+html:fullscreen .container {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: var(--fs-panel-max);
+    padding: 14px;
+}
+
+html:fullscreen .output_canvas {
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    max-height: var(--fs-canvas-max);
+}
+
+html:fullscreen .side-panel {
+    min-height: 0;
+    min-width: 220px;
+    max-width: 320px;
+    max-height: min(100%, var(--fs-panel-max));
+}
+
+html:fullscreen .freshman-guide {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    .masthead {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+    }
+    .masthead-text {
+        align-items: center;
+    }
+    .logo {
+        height: 48px;
+    }
+    .container {
+        padding: 10px;
+    }
+    .freshman-guide {
+        padding: 18px 14px;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    button { transition: none; }
+    button {
+        transition: none;
+    }
 }
