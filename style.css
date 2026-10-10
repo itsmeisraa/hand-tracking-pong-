@@ -448,7 +448,7 @@ canvas {
     box-shadow: 0 4px 20px rgba(85, 70, 255, 0.5);
 }
 
-/* Modal Overlay (Game Over Card) */
+/* Modal Overlay (Game Over Card) — card, not scrim: game stays visible/clickable behind */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -457,8 +457,8 @@ canvas {
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background-color: rgba(8, 5, 24, 0.7);
-    backdrop-filter: blur(5px);
+    background: transparent;
+    pointer-events: none;
 }
 
 .modal-overlay[hidden] {
@@ -545,18 +545,18 @@ canvas {
     box-shadow: 0 4px 24px rgba(85, 70, 255, 0.6);
 }
 
-/* Fullscreen Mode */
+/* Fullscreen Mode — must never scroll */
 html:fullscreen {
     background-color: var(--ink);
     overflow: hidden;
+    height: 100vh;
 }
 
 :fullscreen::backdrop {
     background: var(--ink);
 }
 
-html:fullscreen body,
-body:fullscreen {
+html:fullscreen body {
     width: 100vw;
     height: 100vh;
     overflow: hidden;

@@ -293,7 +293,7 @@ const btnDifficulty = document.getElementById('btn-difficulty');
 function cycleDifficulty() {
     difficultyKey = DIFFICULTY_ORDER[(DIFFICULTY_ORDER.indexOf(difficultyKey) + 1) % DIFFICULTY_ORDER.length];
     applyDifficulty();
-    btnDifficulty.innerText = `Difficulty: ${difficulty.label}`;
+    btnDifficulty.innerText = `Difficulty: ${difficulty.label} (D)`;
     renderBoard(); // each difficulty shows its own leaderboard
 }
 
@@ -308,13 +308,14 @@ const HAND_CONNECTIONS = [
     [13, 17], [17, 18], [18, 19], [19, 20],
     [0, 17]
 ];
-let showMesh = false;
+let showMesh = true;
 
 const btnMesh = document.getElementById('btn-mesh');
+btnMesh.innerText = `Hand Mesh: On (M)`;
 
 btnMesh.addEventListener('click', () => {
     showMesh = !showMesh;
-    btnMesh.innerText = `Hand Mesh: ${showMesh ? 'On' : 'Off'}`;
+    btnMesh.innerText = `Hand Mesh: ${showMesh ? 'On' : 'Off'} (M)`;
 });
 
 // --- VISUAL EFFECTS (trail, particles, confetti, screen shake) ---
